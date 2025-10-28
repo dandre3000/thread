@@ -15,14 +15,26 @@
   "keywords": [
     "thread"
   ],
-  "files": ["./build"],
+  "files": [
+    "./build/node.index.d.ts",
+    "./build/node.index.js",
+    "./build/browser.index.d.ts",
+    "./build/browser.index.js"
+  ],
   "exports": {
-    "node": "./build/node.index.js",
-    "default": "./build/browser.index.js"
+    "node": {
+      "types": "./build/node.index.d.ts",
+      "import": "./build/node.index.js"
+    },
+    "default": {
+      "types": "./build/browser.index.d.ts",
+      "import": "./build/browser.index.js"
+    }
   },
-  "types": "./build/index.d.ts",
   "scripts": {
-    "build": "bun build --entrypoints ./src/browser.index.ts --outdir ./build --external @dandre3000/is-main-thread --minify-whitespace --minify-syntax && bun build --entrypoints ./src/node.index.ts --outdir ./build --target node --external @dandre3000/is-main-thread --minify-whitespace --minify-syntax",
+    "build-browser": "tsc -p tsconfig.node.json && bun build --entrypoints ./src/browser.index.ts --outdir ./build --external @dandre3000/is-main-thread --minify-whitespace --minify-syntax",
+    "build-node": "tsc -p tsconfig.browser.json && bun build --entrypoints ./src/node.index.ts --outdir ./build --target node --external @dandre3000/is-main-thread --minify-whitespace --minify-syntax",
+    "build": "bun run build-node && bun run build-browser",
     "prepack": "bun run build"
   },
   "devDependencies": {
