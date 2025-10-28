@@ -148,13 +148,12 @@ const callHandler: MessageHandler<CallMessage> = (threadData, message) => {
     const fn = functionMap.get(functionId)
 
     try {
-        transferables.length = 0
         const result = (fn as any)(...args)
 
         resolveMessage.responseId = responseId
         resolveMessage.value = result
 
-        threadData.messagePort.postMessage(resolveMessage, transferables)
+        threadData.messagePort.postMessage(resolveMessage, Thread.transfer)
     } catch (error) {
         rejectMessage.responseId = responseId
         rejectMessage.reason = error
@@ -170,7 +169,7 @@ const callHandler: MessageHandler<CallMessage> = (threadData, message) => {
     }
 
     resolveMessage.value = undefined
-    transferables.length = 0
+    Thread.transfer.length = 0
 }
 
 const resolveHandler: MessageHandler<ResolveMessage> = (threadData, message) => {
@@ -238,6 +237,12 @@ export class Thread {
     static id: Thread['id'] = NaN
     /** Data copied to the current thread from the corresponding Thread.create workerData argument. */
     static workerData: any
+    /**
+     * Array of objects that will be transfered and emptied whenever another thread uses Thread.prototype.call
+     * to call a function on this thread made available using Thread.setFunction.
+     * If an object is not transferable the Promise returned by Thread.prototype.call will be rejected.
+     */
+    static transfer: (Transferable | NodeJSTransferable)[] = []
     /** The target for events broadcasted from other threads. */
     static eventTarget = new EventTarget
     /** The Thread instance connected to the main thread if the current thread is a worker otherwise null. */
