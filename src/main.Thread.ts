@@ -1,5 +1,4 @@
 import { type Worker as NodeJSWorker } from 'node:worker_threads'
-import { isMainThread } from '@dandre3000/is-main-thread'
 import {
     type MessageHandler,
     type ConnectMessage,
@@ -24,7 +23,7 @@ import {
 /** Broadcast connect message and send setup message to the Worker when creating a Thread. */
 let setupWorker: (threadId: Thread['id'], worker: Worker | NodeJSWorker, setupWorkerMessage: SetupMessage) => Thread
 
-if (isMainThread) {
+if (Thread.isMainThread) {
     const workerMap = new Map<Thread['id'], Worker | NodeJSWorker>
 
     const connectMessage: ConnectMessage = {

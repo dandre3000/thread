@@ -1,4 +1,6 @@
 node_modules/
-untracked/
 build/
 ignore/
+package-lock.json
+deno.lock
+index.html

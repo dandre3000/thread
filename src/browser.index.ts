@@ -4,10 +4,7 @@ import { closeFactory, setupHandler } from './worker.Thread.ts'
 
 interface BrowserSetupMessage extends SetupMessage { threadId: Thread['id'], workerData: any }
 
-/** True if the current global scope is the main thread or false otherwise. */
-export const isMainThread = typeof Window === 'function' && globalThis instanceof Window
-
-if (isMainThread) {
+if (Thread.isMainThread) {
     let nextThreadId = 1
 
     const setupWorkerMessage: BrowserSetupMessage = {

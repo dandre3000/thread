@@ -4,19 +4,19 @@
     "": {
       "name": "@dandre3000/thread",
       "dependencies": {
-        "@dandre3000/is-main-thread": "^1.1.0",
+        "@dandre3000/is-main-thread": "^1.1.1",
       },
       "devDependencies": {
-        "@types/bun": "^1.3.0",
+        "@types/bun": "^1.3.1",
         "@types/deno": "^2.5.0",
         "@types/node": "^24.9.1",
         "typescript": "^5.9.3",
-        "vite": "^7.1.11",
+        "vite": "^7.1.12",
       },
     },
   },
   "packages": {
-    "@dandre3000/is-main-thread": ["@dandre3000/is-main-thread@1.1.0", "", {}, "sha512-NpatdYSbSoiYbqN9dmAWQL15jIphdKECng5nc/E1aOXXOqrK50DTzPnzt7k+MKcMXw8tmMlPYqkYZ6OMQWc8CA=="],
+    "@dandre3000/is-main-thread": ["@dandre3000/is-main-thread@1.1.2", "", {}, "sha512-OA8vJ00PjrwA+pkCu4679scavKv6QfrehnRcDbR6j8siamz4OiKPo1yMti1iFoHg0YAcCv0Rp9f8Ch55iON5nQ=="],
 
     "@esbuild/aix-ppc64": ["@esbuild/aix-ppc64@0.25.11", "", { "os": "aix", "cpu": "ppc64" }, "sha512-Xt1dOL13m8u0WE8iplx9Ibbm+hFAO0GsU2P34UNoDGvZYkY8ifSiy6Zuc1lYxfG7svWE2fzqCUmFp5HCn51gJg=="],
 

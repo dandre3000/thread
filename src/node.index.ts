@@ -1,9 +1,9 @@
-import { isMainThread, parentPort, threadId, Worker, workerData } from 'node:worker_threads'
+import { parentPort, threadId, Worker, workerData } from 'node:worker_threads'
 import { type SetupMessage, Thread, ThreadPrivateStaticData } from './Thread.ts'
 import { setupWorker } from './main.Thread.ts'
 import { closeFactory, setupHandler } from './worker.Thread.ts'
 
-if (isMainThread) {
+if (Thread.isMainThread) {
     Thread.id = threadId
     Thread.workerData = workerData
     Thread.close = process.exit

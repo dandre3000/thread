@@ -1,4 +1,3 @@
-import { isMainThread } from '@dandre3000/is-main-thread'
 import {
     type Message,
     type ConnectMessage,
@@ -26,7 +25,7 @@ let setupHandler: (message: SetupMessage) => void
 /** Returns a function that sends a CloseMessage to the main thread before calling gloabalThis.close or process.exit. */
 let closeFactory: (threadId: Thread['id'], exit: (exitCode?: number) => never) => (exitCode?: number) => never
 
-if (!isMainThread) {
+if (!Thread.isMainThread) {
     const createMessage: CreateMessage = {
         type: messageTypeEnum.create,
         responseId: -1,
@@ -97,8 +96,6 @@ if (!isMainThread) {
         })
     }
 
-    Thread.isMainThread = isMainThread
-
     Thread.prototype.terminate = function () {
         ThreadPrivateStaticData.enablePrivateAccess = true
         const threadData = this[getPrivateData]()
@@ -126,5 +123,5 @@ if (!isMainThread) {
         })
     }
 }
-console.log(isMainThread)
+
 export { setupHandler, closeFactory }

@@ -1,4 +1,5 @@
 import { type Transferable as NodeJSTransferable } from 'node:worker_threads'
+import { isMainThread } from '@dandre3000/is-main-thread'
 
 export type MessageId = number
 
@@ -232,7 +233,7 @@ const functionMap = new Map<string, (...args: any[]) => any>
 /** Class for managing web and node.js Workers. */
 export class Thread {
     /** True if the current thread is the main thread. */
-    static isMainThread = true
+    static isMainThread = isMainThread
     /** Identifier for the current thread. */
     static id: Thread['id'] = NaN
     /** Data copied to the current thread from the corresponding Thread.create workerData argument. */
