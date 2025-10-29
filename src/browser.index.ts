@@ -35,6 +35,13 @@ if (Thread.isMainThread) {
     
         setupHandler(event.data)
     }, { once: true })
+
+    const errorListener = () => {
+        setTimeout(() => Thread.close(1))
+    }
+
+    addEventListener('error', errorListener)
+    addEventListener('unhandledrejection', errorListener)
 }
 
 export { Thread }

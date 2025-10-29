@@ -27,6 +27,13 @@ if (Thread.isMainThread) {
     ;(parentPort as any).once('message', (message: SetupMessage) => {
         setupHandler(message)
     })
+
+    const errorListener = () => {
+        setImmediate(() => Thread.close(1))
+    }
+
+    process.on('uncaughtException', errorListener)
+    process.on('unhandledRejection', errorListener)
 }
 
 export { Thread }

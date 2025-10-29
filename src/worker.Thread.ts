@@ -53,6 +53,8 @@ if (!Thread.isMainThread) {
 
     closeFactory = (threadId, exit) => (exitCode) => {
         closeMessage.exitCode = Number(exitCode)
+
+        ThreadPrivateStaticData.enablePrivateAccess = true
         ;(Thread.mainThread as Thread)[getPrivateData]().messagePort.postMessage(closeMessage)
 
         return exit(exitCode)
