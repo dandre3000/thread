@@ -1,6 +1,6 @@
 {
   "name": "@dandre3000/thread",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "license": "MIT",
   "author": {
     "name": "DeAundre Payne",
@@ -26,6 +26,7 @@
     "deno"
   ],
   "files": [
+    "./build/Thread.d.ts",
     "./build/node.index.d.ts",
     "./build/node.index.js",
     "./build/browser.index.d.ts",
