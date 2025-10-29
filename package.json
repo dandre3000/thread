@@ -13,7 +13,17 @@
   },
   "description": "A class for managing web and node.js Workers.",
   "keywords": [
-    "thread"
+    "thread",
+    "worker",
+    "webworker",
+    "worker_threads",
+    "async",
+    "multithreading",
+    "parallel",
+    "browser",
+    "node",
+    "bun",
+    "deno"
   ],
   "files": [
     "./build/node.index.d.ts",
