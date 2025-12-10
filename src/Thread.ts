@@ -195,11 +195,6 @@ const rejectHandler: MessageHandler<RejectMessage> = (threadData, message) => {
 export const ThreadPrivateStaticData = {
     /** The id of the next async message that is incremented upon assignment. */
     nextResponseId: 0,
-    /**
-     * Set to true before calling (Thread instance)[getPrivateData] or an error is thrown.
-     * Is set to false by (Thread instance)[getPrivateData] to prevent user from accessing private data.
-     * */
-    enablePrivateAccess: false,
     /** Closure for the web or node.js Worker constructor that creates a Worker and return the corresponding thread instance. Implemented by the main thread. */
     createWorker: null as unknown as (workerData: any) => Thread,
     [messageTypeEnum.create]: null as any,
@@ -226,7 +221,8 @@ export const abortListener = function (this: MessageResponse) {
     this.threadData.messageResponseMap.delete(this.id)
 }
 
-export const threadPrivateDataMap = new Map<Thread['id'], ThreadPrivateInstanceData>
+export const ThreadMap = new WeakMap<Thread, ThreadPrivate>
+export const ThreadIdMap = new Map<Thread['id'], ThreadPrivate>
 const functionMap = new Map<string, (...args: any[]) => any>
 
 /** Class for managing web and node.js Workers. */
@@ -262,10 +258,10 @@ export class Thread {
      * Return the Thread corresponding to the given threadId or return null if no online Thread exists where Thread.id === threadId.
      * @throws {TypeError} if threadId can not be converted to a number.
      */
-    static getThread = (threadId: Thread['id']) => threadPrivateDataMap.get(threadId)?.thread || null
+    static getThread = (threadId: Thread['id']) => ThreadIdMap.get(threadId)?.thread || null
 
     /** Return an array of all online Threads. */
-    static getAllThreads = () => [...threadPrivateDataMap.values()].map(threadData => threadData.thread)
+    static getAllThreads = () => [...ThreadIdMap.values()].map(threadData => threadData.thread)
 
     /**
      * Add a function to those available to other threads using Thread.prototype.call.
@@ -292,22 +288,17 @@ export class Thread {
         throw new Error('Thread.prototype.close is not implemented')
     }
 
-    static [Symbol.hasInstance] = (thread: Thread) => {
-        ThreadPrivateStaticData.enablePrivateAccess = true
-        return thread[getPrivateData]().handleEvent === messageListener
-    }
+    static [Symbol.hasInstance] = (thread: Thread) => ThreadMap.has(thread)
 
     /** Identifier for this thread. */
     id = -1
-
-    ;[getPrivateData]: () => ThreadPrivateInstanceData
 
     /** Do not use. */
     constructor ()
     constructor (key?: typeof privateKey, threadId?: Thread['id'], messagePort?: MessagePort) {
         if (key !== privateKey) throw new Error('Illegal invocation')
 
-        const threadData: ThreadPrivateInstanceData = ({
+        const threadData: ThreadPrivate = ({
             thread: this,
             exitCode: NaN,
             messagePort: messagePort as MessagePort,
@@ -320,15 +311,8 @@ export class Thread {
         (messagePort as MessagePort).addEventListener('message', threadData)
         ;(messagePort as MessagePort).start()
 
-        this[getPrivateData] = () => {
-            if (!ThreadPrivateStaticData.enablePrivateAccess) throw new Error('illegal invocation')
-
-            ThreadPrivateStaticData.enablePrivateAccess = false
-
-            return threadData
-        }
-
-        threadPrivateDataMap.set(threadId as Thread['id'], threadData)
+        ThreadMap.set(this, threadData)
+        ThreadIdMap.set(threadId as Thread['id'], threadData)
         Thread.eventTarget.dispatchEvent(new (OnlineEvent as any)(privateKey, this))
     }
 
@@ -337,13 +321,10 @@ export class Thread {
      * @throws {TypeError} if this is not a Thread instance.
      * */
     isOnline () {
-        ThreadPrivateStaticData.enablePrivateAccess = true
-        const threadData = this[getPrivateData]()
-
-        if (threadData?.handleEvent !== messageListener)
+        if (!ThreadMap.has(this))
             throw new TypeError(`this (${Object.prototype.toString.call(this)}) is not a Thread instance`)
 
-        return threadData.exitCode !== threadData.exitCode
+        return ThreadIdMap.has(this.id)
     }
 
     /**
@@ -355,13 +336,11 @@ export class Thread {
      * @throws {TypeError} if moduleId can not be converted to a number.
      */
     import (moduleId: any, signal?: AbortSignal) {
-        ThreadPrivateStaticData.enablePrivateAccess = true
-        const threadData = this[getPrivateData]()
-
-        if (threadData?.handleEvent !== messageListener)
+        if (!ThreadMap.has(this))
             throw new TypeError(`this (${Object.prototype.toString.call(this)}) is not a Thread instance`)
 
-        if (threadData.exitCode === threadData.exitCode) throw new Error(`thread ${this.id} is closed`)
+        const threadData = ThreadIdMap.get(this.id)
+        if (!threadData) throw new Error(`thread ${this.id} is closed`)
 
         moduleId = String(moduleId)
 
@@ -421,13 +400,11 @@ export class Thread {
      */
     call (functionId: any, options?: CallOptions): Promise<any>
     call (functionId: any, argsOrOptions?: (any[] | CallOptions)) {
-        ThreadPrivateStaticData.enablePrivateAccess = true
-        const threadData = this[getPrivateData]()
-
-        if (threadData?.handleEvent !== messageListener)
+        if (!ThreadMap.has(this))
             throw new TypeError(`this (${Object.prototype.toString.call(this)}) is not a Thread instance`)
 
-        if (threadData.exitCode === threadData.exitCode) throw new Error(`thread ${this.id} is closed`)
+        const threadData = ThreadIdMap.get(this.id)
+        if (!threadData) throw new Error(`thread ${this.id} is closed`)
 
         functionId = String(functionId)
 
@@ -500,7 +477,7 @@ export class Thread {
 }
 
 /** Thread cleanup */
-export const destructThreadPrivateData = (threadData: ThreadPrivateInstanceData, exitCode?: number) => {
+export const destructThreadPrivateData = (threadData: ThreadPrivate, exitCode?: number) => {
     if (threadData.messagePort) {
         for (const [id, response] of threadData.messageResponseMap) {
             response.reject(new Error(`thread ${threadData.thread.id} closed`))
@@ -512,7 +489,7 @@ export const destructThreadPrivateData = (threadData: ThreadPrivateInstanceData,
         threadData.messagePort = undefined as any
         threadData.messageResponseMap = undefined as any
 
-        threadPrivateDataMap.delete(threadData.thread.id)
+        ThreadIdMap.delete(threadData.thread.id)
         Thread.eventTarget.dispatchEvent(new (ExitEvent as any)(privateKey, threadData.thread.id, exitCode))
     }
 }

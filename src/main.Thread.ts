@@ -6,18 +6,17 @@ import {
     resolveMessage,
     type Message,
     type TerminateMessage,
-    threadPrivateDataMap,
+    ThreadIdMap,
     Thread,
     privateKey,
     ThreadPrivateStaticData,
     type SetupMessage,
     type CreateMessage,
     type DisconnectMessage,
-    getPrivateData,
-    messageListener,
     destructThreadPrivateData,
-    type ThreadPrivateInstanceData,
-    type CloseMessage
+    type ThreadPrivate,
+    type CloseMessage,
+    ThreadMap
 } from './Thread.ts'
 
 /** Broadcast connect message and send setup message to the Worker when creating a Thread. */
@@ -39,7 +38,7 @@ if (Thread.isMainThread) {
     }
 
     /** Broadcast disconnect message when closing a thread. */
-    const closeThread = (threadData: ThreadPrivateInstanceData, exitCode?: number) => {
+    const closeThread = (threadData: ThreadPrivate, exitCode?: number) => {
         destructThreadPrivateData(threadData)
 
         const { thread, messagePort } = threadData
@@ -47,7 +46,7 @@ if (Thread.isMainThread) {
         disconnectMessage.threadId = thread.id
         disconnectMessage.exitCode = exitCode || 0
 
-        for (const [id, threadData] of threadPrivateDataMap) {
+        for (const [id, threadData] of ThreadIdMap) {
             threadData.messagePort.postMessage(disconnectMessage)
         }
 
@@ -62,7 +61,7 @@ if (Thread.isMainThread) {
         setupWorkerMessage.currentThreadIds.push(0)
         setupWorkerMessage.currentMessagePorts.push(port2)
 
-        for (const [id, threadData] of threadPrivateDataMap) {
+        for (const [id, threadData] of ThreadIdMap) {
             const { port1, port2 } = new MessageChannel
 
             connectMessage.messagePort = port1
@@ -93,7 +92,7 @@ if (Thread.isMainThread) {
     const terminateHandler: MessageHandler<TerminateMessage> = (_threadData, message) => {
         if (message.threadId === 0) Thread.close()
 
-        const threadData = threadPrivateDataMap.get(message.threadId)
+        const threadData = ThreadIdMap.get(message.threadId)
 
         if (threadData) {
             closeThread(threadData)
@@ -118,13 +117,11 @@ if (Thread.isMainThread) {
     })
 
     Thread.prototype.terminate = function () {
-        ThreadPrivateStaticData.enablePrivateAccess = true
-        const threadData = this[getPrivateData]()
-
-        if (threadData?.handleEvent !== messageListener)
+        const threadData = ThreadMap.get(this)
+        if (!threadData)
             throw new TypeError(`this (${Object.prototype.toString.call(this)}) is not a Thread instance`)
 
-        closeThread(threadData)
+        if (ThreadIdMap.has(this.id)) closeThread(threadData)
 
         return Promise.resolve(threadData.exitCode)
     }

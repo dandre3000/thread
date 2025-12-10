@@ -2,8 +2,8 @@ import {
     type Message,
     type ConnectMessage,
     type MessageHandler,
-    type ThreadPrivateInstanceData,
-    threadPrivateDataMap,
+    type ThreadPrivate,
+    ThreadIdMap,
     privateKey,
     messageTypeEnum,
     Thread,
@@ -13,11 +13,10 @@ import {
     type DisconnectMessage,
     type SetupMessage,
     destructThreadPrivateData,
-    getPrivateData,
-    messageListener,
     type TerminateMessage,
     type CloseMessage,
-    type CreateMessage
+    type CreateMessage,
+    ThreadMap
 } from './Thread.ts'
 
 /** Handle the initial message from the main thread to this thread. */
@@ -54,18 +53,17 @@ if (!Thread.isMainThread) {
     closeFactory = (threadId, exit) => (exitCode) => {
         closeMessage.exitCode = Number(exitCode)
 
-        ThreadPrivateStaticData.enablePrivateAccess = true
-        ;(Thread.mainThread as Thread)[getPrivateData]().messagePort.postMessage(closeMessage)
+        ThreadIdMap.get(0).messagePort.postMessage(closeMessage)
 
         return exit(exitCode)
     }
 
-    const connectHandler: MessageHandler<ConnectMessage> = (threadData: ThreadPrivateInstanceData, message) => {
+    const connectHandler: MessageHandler<ConnectMessage> = (threadData: ThreadPrivate, message) => {
         new (Thread as any)(privateKey, message.threadId, message.messagePort)
     }
 
     const disconnectHandler: MessageHandler<DisconnectMessage> = (threadData, message) => {
-        const disconnectThreadData = threadPrivateDataMap.get(message.threadId)
+        const disconnectThreadData = ThreadIdMap.get(message.threadId)
 
         if (disconnectThreadData) destructThreadPrivateData(disconnectThreadData, message.exitCode)
     }
@@ -76,15 +74,14 @@ if (!Thread.isMainThread) {
     // send a CreateMessage to the main thread and await the response
     Thread.create = (workerData?: CreateMessage['workerData']) => {
         return new Promise((resolve, reject) => {
-            ThreadPrivateStaticData.enablePrivateAccess = true
-            const threadData = (Thread.mainThread as Thread)[getPrivateData]()
+            const threadData = ThreadIdMap.get(0)
 
             const messageResponse: MessageResponse = {
                 id: ThreadPrivateStaticData.nextResponseId++,
                 threadData: threadData,
                 signal: null as any,
                 resolve: (threadId: number) => {
-                    resolve((threadPrivateDataMap.get(threadId) as ThreadPrivateInstanceData).thread)
+                    resolve((ThreadIdMap.get(threadId) as ThreadPrivate).thread)
                 },
                 reject,
                 handleEvent: abortListener
@@ -99,10 +96,8 @@ if (!Thread.isMainThread) {
     }
 
     Thread.prototype.terminate = function () {
-        ThreadPrivateStaticData.enablePrivateAccess = true
-        const threadData = this[getPrivateData]()
-
-        if (threadData?.handleEvent !== messageListener)
+        const threadData = ThreadMap.get(this)
+        if (!threadData)
             throw new TypeError(`this (${Object.prototype.toString.call(this)}) is not a Thread instance`)
 
         if (threadData.exitCode === threadData.exitCode) return Promise.resolve(threadData.exitCode)
@@ -120,8 +115,7 @@ if (!Thread.isMainThread) {
             terminateMessage.responseId = messageResponse.id
             terminateMessage.threadId = this.id
 
-            ThreadPrivateStaticData.enablePrivateAccess = true
-            ;(Thread.mainThread as Thread)[getPrivateData]().messagePort.postMessage(terminateMessage)
+            ThreadIdMap.get(0).messagePort.postMessage(terminateMessage)
         })
     }
 }
