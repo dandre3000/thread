@@ -2,7 +2,7 @@ import { type Worker as NodeJSWorker } from 'node:worker_threads'
 import {
     type MessageHandler,
     type ConnectMessage,
-    messageTypeEnum,
+    MessageType,
     resolveMessage,
     type Message,
     type TerminateMessage,
@@ -13,7 +13,7 @@ import {
     type SetupMessage,
     type CreateMessage,
     type DisconnectMessage,
-    destructThreadPrivateData,
+    disconnectThread,
     type ThreadPrivate,
     type CloseMessage,
     ThreadMap
@@ -26,28 +26,28 @@ if (Thread.isMainThread) {
     const workerMap = new Map<Thread['id'], Worker | NodeJSWorker>
 
     const connectMessage: ConnectMessage = {
-        type: messageTypeEnum.connect,
+        type: MessageType.Connect,
         threadId: -1,
         messagePort: (null as unknown) as MessagePort
     }
 
     const disconnectMessage: DisconnectMessage = {
-        type: messageTypeEnum.disconnect,
+        type: MessageType.Disconnect,
         threadId: -1,
         exitCode: -1
     }
 
     /** Broadcast disconnect message when closing a thread. */
     const closeThread = (threadData: ThreadPrivate, exitCode?: number) => {
-        destructThreadPrivateData(threadData)
+        disconnectThread(threadData)
 
         const { thread, messagePort } = threadData
 
         disconnectMessage.threadId = thread.id
         disconnectMessage.exitCode = exitCode || 0
 
-        for (const [id, threadData] of ThreadIdMap) {
-            threadData.messagePort.postMessage(disconnectMessage)
+        for (const _ of ThreadIdMap) {
+            messagePort.postMessage(disconnectMessage)
         }
 
         ;(workerMap.get(thread.id) as Worker | NodeJSWorker).terminate()
@@ -108,9 +108,9 @@ if (Thread.isMainThread) {
         }
     }
 
-    ThreadPrivateStaticData[messageTypeEnum.create] = createHandler as MessageHandler<Message>
-    ThreadPrivateStaticData[messageTypeEnum.terminate] = terminateHandler as MessageHandler<Message>
-    ThreadPrivateStaticData[messageTypeEnum.close] = closeHandler as MessageHandler<Message>
+    ThreadPrivateStaticData[MessageType.Create] = createHandler as MessageHandler<Message>
+    ThreadPrivateStaticData[MessageType.Terminate] = terminateHandler as MessageHandler<Message>
+    ThreadPrivateStaticData[MessageType.Close] = closeHandler as MessageHandler<Message>
 
     Thread.create = workerData => new Promise(resolve => {
         resolve(ThreadPrivateStaticData.createWorker(workerData))

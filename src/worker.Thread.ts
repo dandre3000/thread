@@ -5,14 +5,14 @@ import {
     type ThreadPrivate,
     ThreadIdMap,
     privateKey,
-    messageTypeEnum,
+    MessageType,
     Thread,
     type MessageResponse,
     ThreadPrivateStaticData,
     abortListener,
     type DisconnectMessage,
     type SetupMessage,
-    destructThreadPrivateData,
+    disconnectThread,
     type TerminateMessage,
     type CloseMessage,
     type CreateMessage,
@@ -26,19 +26,19 @@ let closeFactory: (threadId: Thread['id'], exit: (exitCode?: number) => never) =
 
 if (!Thread.isMainThread) {
     const createMessage: CreateMessage = {
-        type: messageTypeEnum.create,
+        type: MessageType.Create,
         responseId: -1,
         workerData: undefined
     }
 
     const terminateMessage: TerminateMessage = {
-        type: messageTypeEnum.terminate,
+        type: MessageType.Terminate,
         responseId: -1,
         threadId: -1,
     }
 
     const closeMessage: CloseMessage = {
-        type: messageTypeEnum.close,
+        type: MessageType.Close,
         exitCode: NaN
     }
 
@@ -50,7 +50,7 @@ if (!Thread.isMainThread) {
         }
     }
 
-    closeFactory = (threadId, exit) => (exitCode) => {
+    closeFactory = (_, exit) => (exitCode) => {
         closeMessage.exitCode = Number(exitCode)
 
         ThreadIdMap.get(0).messagePort.postMessage(closeMessage)
@@ -58,18 +58,18 @@ if (!Thread.isMainThread) {
         return exit(exitCode)
     }
 
-    const connectHandler: MessageHandler<ConnectMessage> = (threadData: ThreadPrivate, message) => {
+    const connectHandler: MessageHandler<ConnectMessage> = (_, message) => {
         new (Thread as any)(privateKey, message.threadId, message.messagePort)
     }
 
-    const disconnectHandler: MessageHandler<DisconnectMessage> = (threadData, message) => {
+    const disconnectHandler: MessageHandler<DisconnectMessage> = (_, message) => {
         const disconnectThreadData = ThreadIdMap.get(message.threadId)
 
-        if (disconnectThreadData) destructThreadPrivateData(disconnectThreadData, message.exitCode)
+        if (disconnectThreadData) disconnectThread(disconnectThreadData, message.exitCode)
     }
 
-    ThreadPrivateStaticData[messageTypeEnum.connect] = connectHandler as MessageHandler<Message>
-    ThreadPrivateStaticData[messageTypeEnum.disconnect] = disconnectHandler as MessageHandler<Message>
+    ThreadPrivateStaticData[MessageType.Connect] = connectHandler as MessageHandler<Message>
+    ThreadPrivateStaticData[MessageType.Disconnect] = disconnectHandler as MessageHandler<Message>
 
     // send a CreateMessage to the main thread and await the response
     Thread.create = (workerData?: CreateMessage['workerData']) => {
@@ -102,7 +102,7 @@ if (!Thread.isMainThread) {
 
         if (threadData.exitCode === threadData.exitCode) return Promise.resolve(threadData.exitCode)
 
-        return new Promise((resolve, reject) => {
+        return new Promise((_, reject) => {
             const messageResponse: MessageResponse = {
                 id: ThreadPrivateStaticData.nextResponseId++,
                 threadData: threadData,

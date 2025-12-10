@@ -3,19 +3,27 @@ import { isMainThread } from '@dandre3000/is-main-thread'
 
 export type MessageId = number
 
-export interface MessageResponse extends EventListenerObject {
-    id: MessageId
-    threadData: ThreadPrivateInstanceData
-    signal: AbortSignal
-    resolve (value: any): void
-    reject (reason: any): void
+export enum MessageType {
+    /** Thread.prototype.create from worker thread to main thread */
+    Create,
+    /** Thread.prototype.create from main thread */
+    Connect,
+    /** Thread.prototype.import */
+    Import,
+    /** Thread.prototype.call */
+    Call,
+    /** Thread.prototype.create, Thread.prototype.import, Thread.prototype.call, Thread.prototype.terminate */
+    Resolve,
+    /** Thread.prototype.create, Thread.prototype.import, Thread.prototype.call, Thread.prototype.terminate */
+    Reject,
+    /** globalThis.close, process.exit, Thread.close */
+    Close,
+    /** Thread.prototype.terminate */
+    Terminate,
+    /** globalThis.close, process.exit, Thread.close, Thread.prototype.terminate */
+    Disconnect
 }
 
-export interface SetupMessage {
-    currentThreadIds: Thread['id'][]
-    currentMessagePorts: MessagePort[]
-}
-export type MessageType = number
 export interface Message { type: MessageType }
 export interface AsyncMessage extends Message { responseId: MessageId }
 export interface CreateMessage extends AsyncMessage { workerData: any }
@@ -28,14 +36,27 @@ export interface CloseMessage extends Message { exitCode: number }
 export interface TerminateMessage extends AsyncMessage { threadId: Thread['id'] }
 export interface DisconnectMessage extends CloseMessage { threadId: Thread['id'] }
 
-export type MessageHandler<T extends Message> = (threadData: ThreadPrivateInstanceData, message: T) => void
+export type MessageHandler<T extends Message> = (threadData: ThreadPrivate, message: T) => void
 
-export interface ThreadPrivateInstanceData extends EventListenerObject {
+export interface SetupMessage {
+    currentThreadIds: Thread['id'][]
+    currentMessagePorts: MessagePort[]
+}
+
+export interface MessageResponse extends EventListenerObject {
+    id: MessageId
+    threadData: ThreadPrivate
+    signal: AbortSignal
+    resolve (value: any): void
+    reject (reason: any): void
+}
+
+export interface ThreadPrivate extends EventListenerObject {
     thread: Thread
     exitCode: number
     messagePort: MessagePort
     messageResponseMap: Map<MessageId, MessageResponse>
-    handleEvent (this: ThreadPrivateInstanceData, event: MessageEvent<Message>): void
+    handleEvent (this: ThreadPrivate, event: MessageEvent<Message>): void
 }
 
 /** Thread.prototype.call */
@@ -76,51 +97,29 @@ export class ExitEvent extends Event {
 }
 
 /** Return the private data of a Thread. */
-export const getPrivateData = Symbol()
 export const privateKey = Symbol()
 
-export const messageTypeEnum = {
-    /** Thread.prototype.create from worker thread to main thread */
-    create: 0,
-    /** Thread.prototype.create from main thread */
-    connect: 1,
-    /** Thread.prototype.import */
-    import: 2,
-    /** Thread.prototype.call */
-    call: 3,
-    /** Thread.prototype.create, Thread.prototype.import, Thread.prototype.call, Thread.prototype.terminate */
-    resolve: 4,
-    /** Thread.prototype.create, Thread.prototype.import, Thread.prototype.call, Thread.prototype.terminate */
-    reject: 5,
-    /** globalThis.close, process.exit, Thread.close */
-    close: 6,
-    /** Thread.prototype.terminate */
-    terminate: 7,
-    /** globalThis.close, process.exit, Thread.close, Thread.prototype.terminate */
-    disconnect: 8
-}
-
 const importMessage: ImportMessage = {
-    type: messageTypeEnum.import,
+    type: MessageType.Import,
     responseId: -1,
     moduleId: ''
 }
 
 const callMessage: CallMessage = {
-    type: messageTypeEnum.call,
+    type: MessageType.Call,
     responseId: -1,
     functionId: '',
     args: []
 }
 
 export const resolveMessage: ResolveMessage = {
-    type: messageTypeEnum.resolve,
+    type: MessageType.Resolve,
     responseId: -1,
     value: undefined
 }
 
 const rejectMessage: RejectMessage = {
-    type: messageTypeEnum.reject,
+    type: MessageType.Reject,
     responseId: -1,
     reason: undefined
 }
@@ -196,22 +195,22 @@ export const ThreadPrivateStaticData = {
     /** The id of the next async message that is incremented upon assignment. */
     nextResponseId: 0,
     /** Closure for the web or node.js Worker constructor that creates a Worker and return the corresponding thread instance. Implemented by the main thread. */
-    createWorker: null as unknown as (workerData: any) => Thread,
-    [messageTypeEnum.create]: null as any,
-    [messageTypeEnum.connect]: null as any,
-    [messageTypeEnum.import]: importHandler,
-    [messageTypeEnum.call]: callHandler,
-    [messageTypeEnum.resolve]: resolveHandler,
-    [messageTypeEnum.reject]: rejectHandler,
-    [messageTypeEnum.close]: null as any,
-    [messageTypeEnum.terminate]: null as any,
-    [messageTypeEnum.disconnect]: null as any
+    createWorker: null as (workerData: any) => Thread,
+    [MessageType.Create]: null as MessageHandler<CreateMessage>,
+    [MessageType.Connect]: null as MessageHandler<ConnectMessage>,
+    [MessageType.Import]: importHandler,
+    [MessageType.Call]: callHandler,
+    [MessageType.Resolve]: resolveHandler,
+    [MessageType.Reject]: rejectHandler,
+    [MessageType.Close]: null as MessageHandler<CloseMessage>,
+    [MessageType.Terminate]: null as MessageHandler<TerminateMessage>,
+    [MessageType.Disconnect]: null as MessageHandler<DisconnectMessage>
 }
 
 /** The message listener for each thread's MessagePort.  */
-export const messageListener: ThreadPrivateInstanceData['handleEvent'] = function (event) {
+export const messageListener: ThreadPrivate['handleEvent'] = function (event) {
     // call the corresponding MessageHandler for the message type using the message as the argument
-    ThreadPrivateStaticData[event.data.type](this, event.data)
+    (ThreadPrivateStaticData[event.data.type] as MessageHandler<Message>)(this, event.data)
 }
 
 /** The abort listener for AbortSignal arguments in Thread methods. */
@@ -477,7 +476,7 @@ export class Thread {
 }
 
 /** Thread cleanup */
-export const destructThreadPrivateData = (threadData: ThreadPrivate, exitCode?: number) => {
+export const disconnectThread = (threadData: ThreadPrivate, exitCode?: number) => {
     if (threadData.messagePort) {
         for (const [id, response] of threadData.messageResponseMap) {
             response.reject(new Error(`thread ${threadData.thread.id} closed`))
