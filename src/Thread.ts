@@ -82,16 +82,16 @@ export class OnlineEvent extends Event {
 
 /** Dispatched when a Thread is closed. */
 export class ExitEvent extends Event {
-    threadId: number
+    thread: Thread
     exitCode: number
 
     constructor ()
-    constructor (key?: typeof privateKey, threadId?: Thread['id'], exitCode?: number, ) {
+    constructor (key?: typeof privateKey, thread?: Thread, exitCode?: number ) {
         if (key !== privateKey)
             throw new Error(`illegal invocation`)
 
         super('exit')
-        this.threadId = threadId as Thread['id']
+        this.thread = thread as Thread
         this.exitCode = exitCode as number
     }
 }
@@ -454,10 +454,11 @@ export const disconnectThread = (threadData: ThreadPrivate, exitCode?: number) =
         }
 
         threadData.exitCode = Number(exitCode)
+        threadData.messagePort.close()
         threadData.messagePort = undefined as any
         threadData.messageResponseMap = undefined as any
 
         ThreadIdMap.delete(threadData.thread.id)
-        Thread.eventTarget.dispatchEvent(new (ExitEvent as any)(privateKey, threadData.thread.id, exitCode))
+        Thread.eventTarget.dispatchEvent(new (ExitEvent as any)(privateKey, threadData.thread, threadData.exitCode))
     }
 }
