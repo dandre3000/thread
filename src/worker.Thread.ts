@@ -50,14 +50,6 @@ if (!Thread.isMainThread) {
         }
     }
 
-    closeFactory = (_, exit) => (exitCode) => {
-        closeMessage.exitCode = Number(exitCode)
-
-        ThreadIdMap.get(0).messagePort.postMessage(closeMessage)
-
-        return exit(exitCode)
-    }
-
     const connectHandler: MessageHandler<ConnectMessage> = (_, message) => {
         new (Thread as any)(privateKey, message.threadId, message.messagePort)
     }
@@ -70,6 +62,21 @@ if (!Thread.isMainThread) {
 
     ThreadPrivateStaticData[MessageType.Connect] = connectHandler as MessageHandler<Message>
     ThreadPrivateStaticData[MessageType.Disconnect] = disconnectHandler as MessageHandler<Message>
+
+    // should create package that exports close alias
+    Thread.close = (globalThis.close ? (exitCode) => {
+        closeMessage.exitCode = Number(exitCode)
+
+        ThreadIdMap.get(0).messagePort.postMessage(closeMessage)
+
+        return close()
+    } : (exitCode) => {
+        closeMessage.exitCode = Number(exitCode)
+
+        ThreadIdMap.get(0).messagePort.postMessage(closeMessage)
+
+        return process.exit(exitCode)
+    }) as (exitCode?) => never
 
     // send a CreateMessage to the main thread and await the response
     Thread.create = (workerData?: CreateMessage['workerData']) => {

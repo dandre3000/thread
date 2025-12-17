@@ -112,6 +112,9 @@ if (Thread.isMainThread) {
     ThreadPrivateStaticData[MessageType.Terminate] = terminateHandler as MessageHandler<Message>
     ThreadPrivateStaticData[MessageType.Close] = closeHandler as MessageHandler<Message>
 
+    // should create package that exports close alias
+    Thread.close = (globalThis.close || process.exit) as (exitCode?) => never
+
     Thread.create = workerData => new Promise(resolve => {
         resolve(ThreadPrivateStaticData.createWorker(workerData))
     })

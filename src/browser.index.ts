@@ -1,6 +1,6 @@
 import { type SetupMessage, Thread, ThreadPrivateStaticData } from './Thread.ts'
 import { setupWorker } from './main.Thread.ts'
-import { closeFactory, setupHandler } from './worker.Thread.ts'
+import { setupHandler } from './worker.Thread.ts'
 
 interface BrowserSetupMessage extends SetupMessage { threadId: Thread['id'], workerData: any }
 
@@ -16,19 +16,31 @@ if (Thread.isMainThread) {
 
     Thread.id = 0
     Thread.workerData = null
-    Thread.close = close as any
+    Thread.close = globalThis.close as () => never
 
-    ThreadPrivateStaticData.createWorker = workerData => {
+    if (typeof structuredClone === 'function') ThreadPrivateStaticData.createWorker = workerData => {
+        workerData = structuredClone(workerData)
+
         setupWorkerMessage.threadId = nextThreadId++
         setupWorkerMessage.workerData = workerData
+
+        const thread = setupWorker(setupWorkerMessage.threadId, new Worker(import.meta.url, { type: 'module' }), setupWorkerMessage)
+        setupWorkerMessage.workerData = undefined
+
+        return thread
+    }
+    else ThreadPrivateStaticData.createWorker = workerData => {
+        new MessageChannel().port1.postMessage(workerData)
+
+        setupWorkerMessage.threadId = nextThreadId++
+        setupWorkerMessage.workerData = workerData
+
         const thread = setupWorker(setupWorkerMessage.threadId, new Worker(import.meta.url, { type: 'module' }), setupWorkerMessage)
         setupWorkerMessage.workerData = undefined
 
         return thread
     }
 } else {
-    Thread.close = globalThis.close = closeFactory(Thread.id, globalThis.close as () => never)
-
     addEventListener('message', (event: MessageEvent<BrowserSetupMessage>) => {
         Thread.id = event.data.threadId
         Thread.workerData = event.data.workerData
