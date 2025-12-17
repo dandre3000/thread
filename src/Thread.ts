@@ -96,7 +96,9 @@ export class ExitEvent extends Event {
     }
 }
 
-/** Return the private data of a Thread. */
+/** Default array */
+export const emptyArray: never[] = []
+/** Required to use methods that are locked to the user. */
 export const privateKey = Symbol()
 
 const importMessage: ImportMessage = {
@@ -140,14 +142,16 @@ const importHandler: MessageHandler<ImportMessage> = (threadData, message) => {
     })
 }
 
-export const transferables: (Transferable | NodeJSTransferable)[] = []
-
-const callHandler: MessageHandler<CallMessage> = (threadData, message) => {
+/** Call the function, fulfill the promise with its return value and transfer Thread.transfer for Thread.prototype.call. */
+const callHandler: MessageHandler<CallMessage> = async (threadData, message) => {
     const { responseId, functionId, args } = message
     const fn = functionMap.get(functionId)
 
+    if (typeof fn !== 'function') throw new TypeError(`Function ${functionId} does not exist`)
+
     try {
-        const result = (fn as any)(...args)
+        let result = await fn(...(args || emptyArray))
+        if (result instanceof Promise) result.then(value => result = value, reason => result = reason)
 
         resolveMessage.responseId = responseId
         resolveMessage.value = result
@@ -155,9 +159,9 @@ const callHandler: MessageHandler<CallMessage> = (threadData, message) => {
         threadData.messagePort.postMessage(resolveMessage, Thread.transfer)
     } catch (error) {
         rejectMessage.responseId = responseId
-        rejectMessage.reason = error
 
         try {
+            rejectMessage.reason = error
             threadData.messagePort.postMessage(rejectMessage)
         } catch (error) {
             rejectMessage.reason = error
@@ -368,38 +372,21 @@ export class Thread {
 
     /**
      * Call a function on the thread added using Thread.setFunction and return a Promise that resolves to the value returned by that function.
-     * If no function is associated with functionId or the function throws an error then the returned Promise will be rejected.
-     * @param functionId An identifier that maps to a function.
-     * @param args An array of arguments that will be passed to the function. If an argument is not compatible with the HTML structured clone algorithm the returned Promise will be rejected.
-     * @throws {TypeError} if this is not a Thread instance.
-     * @throws {TypeError} if the Thread is closed.
-     * @throws {TypeError} if functionId can not be converted to a string.
-     */
-    call (functionId: any, args?: any[]): Promise<any>
-
-    /**
-     * Call a function on the thread added using Thread.setFunction and return a Promise that resolves to the value returned by that function.
      * If no function is associated with functionId or the function throws an error then the Promise will be rejected.
      * @param functionId An identifier that maps to a function.
-     * @param options An object containing the following properties:
-     *
-     * args: An array of arguments that will be passed to the function. If an argument is not compatible with the HTML structured clone algorithm the Promise will be rejected.
-     *
-     * transfer: An array of objects to transfer to the thread. If an object is not transferable the Promise will be rejected.
-     *
-     * signal: An abortSignal that may be used to reject the Promise.
+     * @param args: An array of arguments that will be passed to the function. If an argument is not compatible with the HTML structured clone algorithm the Promise will be rejected.
+     * @param transfer: An array of objects to transfer to the thread. If an object is not transferable the Promise will be rejected.
+     * @param signal: An abortSignal that may be used to reject the Promise.
      *
      * @throws {TypeError} if this is not a Thread instance.
-     * @throws {TypeError} if the Thread is closed.
+     * @throws {Error} if the Thread is closed.
      * @throws {TypeError} if functionId can not be converted to a string.
-     * @throws {TypeError} if options is not an object.
-     * @throws {TypeError} if options.args is not an array.
-     * @throws {TypeError} if options.transfer is not an array.
-     * @throws {TypeError} if options.signal is not an AbortSignal.
+     * @throws {TypeError} if args is defined but not an array.
+     * @throws {TypeError} if transfer is defined but not an array.
+     * @throws {TypeError} if signal is defined but not an AbortSignal.
      */
-    call (functionId: any, options?: CallOptions): Promise<any>
-    call (functionId: any, argsOrOptions?: (any[] | CallOptions)) {
-        if (!ThreadMap.has(this))
+    call (functionId: any, args?: any[], transfer?: (Transferable | NodeJSTransferable)[], signal?: AbortSignal) {
+        if (!(this instanceof Thread))
             throw new TypeError(`this (${Object.prototype.toString.call(this)}) is not a Thread instance`)
 
         const threadData = ThreadIdMap.get(this.id)
@@ -407,39 +394,20 @@ export class Thread {
 
         functionId = String(functionId)
 
-        let transfer: (Transferable | NodeJSTransferable)[]
-        let signal: AbortSignal
+        if (args !== undefined && !(args instanceof Array))
+            throw new TypeError(`args (${Object.prototype.toString.call(args)}) is not an Array`)
 
-        if (argsOrOptions !== undefined) {
-            if (typeof argsOrOptions !== 'object')
-                throw new TypeError(`argsOrOptions (${typeof argsOrOptions}) is not an object`)
+        if (transfer !== undefined && !(transfer instanceof Array))
+            throw new TypeError(`transfer (${Object.prototype.toString.call(transfer)}) is not an Array`)
 
-            if (argsOrOptions instanceof Array) {
-                callMessage.args = argsOrOptions
-            } else {
-                if (argsOrOptions.args && !(argsOrOptions.args instanceof Array))
-                    throw new TypeError(`options.args (${Object.prototype.toString.call(argsOrOptions.args)}) is not an Array`)
-
-                transfer = argsOrOptions.transfer as (Transferable | NodeJSTransferable)[]
-
-                if (transfer && !(transfer instanceof Array))
-                    throw new TypeError(`options.transfer (${Object.prototype.toString.call(transfer)}) is not an Array`)
-
-
-                signal = argsOrOptions.signal as AbortSignal
-
-                if (signal && !(signal instanceof AbortSignal))
-                    throw new TypeError(`options.signal (${Object.prototype.toString.call(signal)}) is not an AbortSignal`)
-
-                callMessage.args = argsOrOptions.args || []
-            }
-        }
+        if (signal !== undefined && !(signal instanceof AbortSignal))
+            throw new TypeError(`signal (${Object.prototype.toString.call(signal)}) is not an AbortSignal`)
 
         return new Promise((resolve, reject) => {
             const messageResponse: MessageResponse = {
                 id: ThreadPrivateStaticData.nextResponseId++,
                 threadData: threadData,
-                signal,
+                signal: signal || null,
                 resolve,
                 reject,
                 handleEvent: abortListener
@@ -450,9 +418,10 @@ export class Thread {
 
             callMessage.responseId = messageResponse.id
             callMessage.functionId = functionId
+            callMessage.args = args || null
 
             try {
-                threadData.messagePort.postMessage(callMessage, transfer)
+                threadData.messagePort.postMessage(callMessage, transfer || emptyArray)
             } catch (error) {
                 reject(error)
                 signal?.removeEventListener('abort', messageResponse)
