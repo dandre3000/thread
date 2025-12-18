@@ -38,9 +38,7 @@ if (Thread.isMainThread) {
     }
 
     /** Broadcast disconnect message when closing a thread. */
-    const closeThread = (threadData: ThreadPrivate, exitCode?: number) => {
-        disconnectThread(threadData)
-
+    const closeThread = async (threadData: ThreadPrivate, exitCode?: number) => {
         const { thread, messagePort } = threadData
 
         disconnectMessage.threadId = thread.id
@@ -50,7 +48,9 @@ if (Thread.isMainThread) {
             messagePort.postMessage(disconnectMessage)
         }
 
-        ;(workerMap.get(thread.id) as Worker | NodeJSWorker).terminate()
+        disconnectThread(threadData, exitCode)
+
+        await (workerMap.get(thread.id) as Worker | NodeJSWorker).terminate()
         workerMap.delete(thread.id)
     }
 
@@ -115,18 +115,17 @@ if (Thread.isMainThread) {
     // should create package that exports close alias
     Thread.close = (globalThis.close || process.exit) as (exitCode?) => never
 
-    Thread.create = workerData => new Promise(resolve => {
-        resolve(ThreadPrivateStaticData.createWorker(workerData))
-    })
+    Thread.create = async workerData => await ThreadPrivateStaticData.createWorker(workerData)
 
-    Thread.prototype.terminate = function () {
-        const threadData = ThreadMap.get(this)
-        if (!threadData)
+    Thread.prototype.terminate = async function () {
+        if (!(this instanceof Thread))
             throw new TypeError(`this (${Object.prototype.toString.call(this)}) is not a Thread instance`)
 
-        if (ThreadIdMap.has(this.id)) closeThread(threadData)
+        const threadData = ThreadMap.get(this)
 
-        return Promise.resolve(threadData.exitCode)
+        if (ThreadIdMap.has(this.id)) await closeThread(threadData, 0)
+
+        return threadData.exitCode
     }
 }
 

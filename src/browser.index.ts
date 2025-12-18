@@ -18,20 +18,7 @@ if (Thread.isMainThread) {
     Thread.workerData = null
     Thread.close = globalThis.close as () => never
 
-    if (typeof structuredClone === 'function') ThreadPrivateStaticData.createWorker = workerData => {
-        workerData = structuredClone(workerData)
-
-        setupWorkerMessage.threadId = nextThreadId++
-        setupWorkerMessage.workerData = workerData
-
-        const thread = setupWorker(setupWorkerMessage.threadId, new Worker(import.meta.url, { type: 'module' }), setupWorkerMessage)
-        setupWorkerMessage.workerData = undefined
-
-        return thread
-    }
-    else ThreadPrivateStaticData.createWorker = workerData => {
-        new MessageChannel().port1.postMessage(workerData)
-
+    ThreadPrivateStaticData.createWorker = workerData => {
         setupWorkerMessage.threadId = nextThreadId++
         setupWorkerMessage.workerData = workerData
 

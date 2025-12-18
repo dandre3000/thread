@@ -10,11 +10,11 @@ export enum MessageType {
     Connect,
     /** Thread.prototype.import */
     Import,
-    /** Thread.prototype.call */
-    Call,
-    /** Thread.prototype.create, Thread.prototype.import, Thread.prototype.call, Thread.prototype.terminate */
+    /** Thread.prototype.invoke */
+    Invoke,
+    /** Thread.prototype.create, Thread.prototype.import, Thread.prototype.invoke, Thread.prototype.terminate */
     Resolve,
-    /** Thread.prototype.create, Thread.prototype.import, Thread.prototype.call, Thread.prototype.terminate */
+    /** Thread.prototype.create, Thread.prototype.import, Thread.prototype.invoke, Thread.prototype.terminate */
     Reject,
     /** globalThis.close, process.exit, Thread.close */
     Close,
@@ -29,7 +29,7 @@ export interface AsyncMessage extends Message { responseId: MessageId }
 export interface CreateMessage extends AsyncMessage { workerData: any }
 export interface ConnectMessage extends Message { threadId: Thread['id'], messagePort: MessagePort }
 interface ImportMessage extends AsyncMessage { moduleId: string }
-interface CallMessage extends AsyncMessage { functionId: string, args: any[] }
+interface InvokeMessage extends AsyncMessage { functionId: string, args: any[] }
 interface ResolveMessage extends AsyncMessage { value: any }
 interface RejectMessage extends AsyncMessage { reason: any }
 export interface CloseMessage extends Message { exitCode: number }
@@ -57,13 +57,6 @@ export interface ThreadPrivate extends EventListenerObject {
     messagePort: MessagePort
     messageResponseMap: Map<MessageId, MessageResponse>
     handleEvent (this: ThreadPrivate, event: MessageEvent<Message>): void
-}
-
-/** Thread.prototype.call */
-export interface CallOptions {
-    args?: any[]
-    transfer?: (Transferable | NodeJSTransferable)[]
-    signal?: AbortSignal
 }
 
 /** Dispatched when a Thread is created. */
@@ -107,11 +100,11 @@ const importMessage: ImportMessage = {
     moduleId: ''
 }
 
-const callMessage: CallMessage = {
-    type: MessageType.Call,
+const invokeMessage: InvokeMessage = {
+    type: MessageType.Invoke,
     responseId: -1,
     functionId: '',
-    args: []
+    args: null
 }
 
 export const resolveMessage: ResolveMessage = {
@@ -126,6 +119,7 @@ const rejectMessage: RejectMessage = {
     reason: undefined
 }
 
+/** Import the module and fulfill the promise for Thread.prototype.import. */
 const importHandler: MessageHandler<ImportMessage> = (threadData, message) => {
     const promise = import(message.moduleId)
 
@@ -136,22 +130,29 @@ const importHandler: MessageHandler<ImportMessage> = (threadData, message) => {
 
     promise.catch(error => {
         rejectMessage.responseId = message.responseId
-        rejectMessage.reason = error
-        threadData.messagePort.postMessage(rejectMessage)
+
+        try {
+            rejectMessage.reason = error
+            threadData.messagePort.postMessage(rejectMessage)
+        } catch (error) {
+            rejectMessage.reason = error
+            threadData.messagePort.postMessage(rejectMessage)
+        }
+
         rejectMessage.reason = undefined
     })
 }
 
-/** Call the function, fulfill the promise with its return value and transfer Thread.transfer for Thread.prototype.call. */
-const callHandler: MessageHandler<CallMessage> = async (threadData, message) => {
+/** Call the function, fulfill the promise with its return value and transfer Thread.transfer for Thread.prototype.invoke. */
+const invokeHandler: MessageHandler<InvokeMessage> = async (threadData, message) => {
     const { responseId, functionId, args } = message
     const fn = functionMap.get(functionId)
 
-    if (typeof fn !== 'function') throw new TypeError(`Function ${functionId} does not exist`)
-
     try {
+        if (typeof fn !== 'function') {throw new Error(`Function ${functionId} does not exist`)}
+
         let result = await fn(...(args || emptyArray))
-        if (result instanceof Promise) result.then(value => result = value, reason => result = reason)
+        if (result instanceof Promise) result = await result
 
         resolveMessage.responseId = responseId
         resolveMessage.value = result
@@ -195,6 +196,7 @@ const rejectHandler: MessageHandler<RejectMessage> = (threadData, message) => {
     }
 }
 
+/** Variables that will be passed by reference. */
 export const ThreadPrivateStaticData = {
     /** The id of the next async message that is incremented upon assignment. */
     nextResponseId: 0,
@@ -203,7 +205,7 @@ export const ThreadPrivateStaticData = {
     [MessageType.Create]: null as MessageHandler<CreateMessage>,
     [MessageType.Connect]: null as MessageHandler<ConnectMessage>,
     [MessageType.Import]: importHandler,
-    [MessageType.Call]: callHandler,
+    [MessageType.Invoke]: invokeHandler,
     [MessageType.Resolve]: resolveHandler,
     [MessageType.Reject]: rejectHandler,
     [MessageType.Close]: null as MessageHandler<CloseMessage>,
@@ -213,7 +215,7 @@ export const ThreadPrivateStaticData = {
 
 /** The message listener for each thread's MessagePort.  */
 export const messageListener: ThreadPrivate['handleEvent'] = function (event) {
-    // call the corresponding MessageHandler for the message type using the message as the argument
+    // invoke the corresponding MessageHandler for the message type using the message as the argument
     (ThreadPrivateStaticData[event.data.type] as MessageHandler<Message>)(this, event.data)
 }
 
@@ -237,11 +239,11 @@ export class Thread {
     /** Data copied to the current thread from the corresponding Thread.create workerData argument. */
     static workerData: any
     /**
-     * Array of objects that will be transfered and emptied whenever another thread uses Thread.prototype.call
-     * to call a function on this thread made available using Thread.setFunction.
-     * If an object is not transferable the Promise returned by Thread.prototype.call will be rejected.
+     * Array of objects that will be transfered and emptied whenever another thread uses Thread.prototype.invoke
+     * to invoke a function on this thread made available using Thread.setFunction.
+     * If an object is not transferable the Promise returned by Thread.prototype.invoke will be rejected.
      */
-    static transfer: (Transferable | NodeJSTransferable)[] = []
+    static transfer: (Transferable | NodeJSTransferable)[] = [] // replace with method for transferable check
     /** The target for events broadcasted from other threads. */
     static eventTarget = new EventTarget
     /** The Thread instance connected to the main thread if the current thread is a worker otherwise null. */
@@ -249,16 +251,20 @@ export class Thread {
 
     /**
      * Return a Promise that resolves to a new Thread.
-     * @param workerData Arbitrary value that is copied to the thread as Thread.workerData. If workerData is not compatible with the HTML structured clone algorithm the returned Promise will be rejected.
+     *
+     * @param workerData Arbitrary value that is copied to the thread as Thread.workerData.
+     *
+     * @throws {DOMException} if workerData is not compatible with the structuredClone function.
      */
     static create = (workerData: CreateMessage['workerData']) => {
-        if (1) throw new Error('Thread.create is not implemented')
+        if (true) throw new Error('Thread.create is not implemented')
 
         return new Promise<Thread>(() => {})
     }
 
     /**
      * Return the Thread corresponding to the given threadId or return null if no online Thread exists where Thread.id === threadId.
+     *
      * @throws {TypeError} if threadId can not be converted to a number.
      */
     static getThread = (threadId: Thread['id']) => ThreadIdMap.get(threadId)?.thread || null
@@ -267,21 +273,27 @@ export class Thread {
     static getAllThreads = () => [...ThreadIdMap.values()].map(threadData => threadData.thread)
 
     /**
-     * Add a function to those available to other threads using Thread.prototype.call.
+     * Add a function to those available to other threads using Thread.prototype.invoke.
+     *
      * @param functionId Identifier to associate with the function.
      * @param fn The function.
+     *
+     * @throws {TypeError} if fn is not a function.
      */
-    static setFunction = (functionId: any, fn: (...args: any[]) => any) => {
+    static setFunction = (id: any, fn: (...args: any[]) => any) => {
+        id = String(id)
+
         if (typeof fn !== 'function') throw new TypeError(`fn (${typeof fn}) is not a function`)
 
-        functionMap.set(String(functionId), fn)
+        functionMap.set(id, fn)
     }
 
     /**
-     * Remove a function from those available to other threads using Thread.prototype.call.
-     * @param functionId Identifier associated with the function.
+     * Remove a function from those available to other threads using Thread.prototype.invoke.
+     *
+     * @param id Identifier associated with the function.
      */
-    static deleteFunction = (functionId: any) => functionMap.delete(String(functionId))
+    static deleteFunction = (id: any) => functionMap.delete(String(id))
 
     /**
      * Alias for globalThis.close or process.exit.
@@ -321,10 +333,11 @@ export class Thread {
 
     /**
      * Returns true until the thread is closed.
+     *
      * @throws {TypeError} if this is not a Thread instance.
      * */
     isOnline () {
-        if (!ThreadMap.has(this))
+        if (!(this instanceof Thread))
             throw new TypeError(`this (${Object.prototype.toString.call(this)}) is not a Thread instance`)
 
         return ThreadIdMap.has(this.id)
@@ -332,14 +345,16 @@ export class Thread {
 
     /**
      * Dynamically import an ES module to the thread and return a Promise that resolves when the module is loaded.
+     *
      * @param moduleId Determines what module to import.
      * @param signal An AbortSignal that may be used to reject the returned Promise.
+     *
      * @throws {TypeError} if this is not a Thread instance.
-     * @throws {TypeError} if the Thread is closed.
+     * @throws {Error} if the Thread is closed.
      * @throws {TypeError} if moduleId can not be converted to a number.
      */
     import (moduleId: any, signal?: AbortSignal) {
-        if (!ThreadMap.has(this))
+        if (!(this instanceof Thread))
             throw new TypeError(`this (${Object.prototype.toString.call(this)}) is not a Thread instance`)
 
         const threadData = ThreadIdMap.get(this.id)
@@ -372,27 +387,27 @@ export class Thread {
 
     /**
      * Call a function on the thread added using Thread.setFunction and return a Promise that resolves to the value returned by that function.
-     * If no function is associated with functionId or the function throws an error then the Promise will be rejected.
-     * @param functionId An identifier that maps to a function.
+     * If no function is associated with id or the function throws an error then the Promise will be rejected.
+     *
+     * @param id An identifier that maps to a function.
      * @param args: An array of arguments that will be passed to the function. If an argument is not compatible with the HTML structured clone algorithm the Promise will be rejected.
      * @param transfer: An array of objects to transfer to the thread. If an object is not transferable the Promise will be rejected.
      * @param signal: An abortSignal that may be used to reject the Promise.
      *
      * @throws {TypeError} if this is not a Thread instance.
      * @throws {Error} if the Thread is closed.
-     * @throws {TypeError} if functionId can not be converted to a string.
      * @throws {TypeError} if args is defined but not an array.
      * @throws {TypeError} if transfer is defined but not an array.
      * @throws {TypeError} if signal is defined but not an AbortSignal.
      */
-    call (functionId: any, args?: any[], transfer?: (Transferable | NodeJSTransferable)[], signal?: AbortSignal) {
+    invoke (id: any, args?: any[], transfer?: (Transferable | NodeJSTransferable)[], signal?: AbortSignal) {
         if (!(this instanceof Thread))
             throw new TypeError(`this (${Object.prototype.toString.call(this)}) is not a Thread instance`)
 
         const threadData = ThreadIdMap.get(this.id)
         if (!threadData) throw new Error(`thread ${this.id} is closed`)
 
-        functionId = String(functionId)
+        id = String(id)
 
         if (args !== undefined && !(args instanceof Array))
             throw new TypeError(`args (${Object.prototype.toString.call(args)}) is not an Array`)
@@ -416,29 +431,30 @@ export class Thread {
             threadData.messageResponseMap.set(messageResponse.id, messageResponse)
             signal?.addEventListener('abort', messageResponse)
 
-            callMessage.responseId = messageResponse.id
-            callMessage.functionId = functionId
-            callMessage.args = args || null
+            invokeMessage.responseId = messageResponse.id
+            invokeMessage.functionId = id
+            invokeMessage.args = args || null
 
             try {
-                threadData.messagePort.postMessage(callMessage, transfer || emptyArray)
+                threadData.messagePort.postMessage(invokeMessage, transfer || emptyArray)
             } catch (error) {
                 reject(error)
                 signal?.removeEventListener('abort', messageResponse)
                 threadData.messageResponseMap.delete(messageResponse.id)
             }
 
-            callMessage.functionId = ''
-            callMessage.args = null as any
+            invokeMessage.functionId = ''
+            invokeMessage.args = null as any
         })
     }
 
     /**
      * Close this thread.
+     *
      * @throws {TypeError} if this is not a Thread instance.
      * */
     terminate () {
-        if (1) throw new Error('Thread.prototype.terminate is not implemented')
+        if (true) throw new Error('Thread.prototype.terminate is not implemented')
 
         return Promise.resolve(NaN)
     }

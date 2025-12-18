@@ -103,9 +103,10 @@ if (!Thread.isMainThread) {
     }
 
     Thread.prototype.terminate = function () {
-        const threadData = ThreadMap.get(this)
-        if (!threadData)
+        if (!(this instanceof Thread))
             throw new TypeError(`this (${Object.prototype.toString.call(this)}) is not a Thread instance`)
+
+        const threadData = ThreadMap.get(this)
 
         if (threadData.exitCode === threadData.exitCode) return Promise.resolve(threadData.exitCode)
 
