@@ -4,11 +4,10 @@ import {
     type MessageHandler,
     type ThreadPrivate,
     ThreadIdMap,
-    privateKey,
     MessageType,
     Thread,
     type MessageResponse,
-    ThreadPrivateStaticData,
+    ThreadPrivateStatic,
     abortListener,
     type DisconnectMessage,
     type SetupMessage,
@@ -16,7 +15,8 @@ import {
     type TerminateMessage,
     type CloseMessage,
     type CreateMessage,
-    ThreadMap
+    ThreadMap,
+    errorReference
 } from './Thread.ts'
 
 /** Handle the initial message from the main thread to this thread. */
@@ -44,14 +44,16 @@ if (!Thread.isMainThread) {
 
     setupHandler = (message) => {
         for (let i = 0; i < message.currentThreadIds.length; i++) {
-            const thread = new (Thread as any)(privateKey, message.currentThreadIds[i], message.currentMessagePorts[i])
+            ThreadPrivateStatic.privateKey = true
+            const thread = new Thread(message.currentThreadIds[i], message.currentMessagePorts[i])
 
             if (message.currentThreadIds[i] === 0) Thread.mainThread = thread
         }
     }
 
     const connectHandler: MessageHandler<ConnectMessage> = (_, message) => {
-        new (Thread as any)(privateKey, message.threadId, message.messagePort)
+        ThreadPrivateStatic.privateKey = true
+        new Thread(message.threadId, message.messagePort)
     }
 
     const disconnectHandler: MessageHandler<DisconnectMessage> = (_, message) => {
@@ -60,8 +62,8 @@ if (!Thread.isMainThread) {
         if (disconnectThreadData) disconnectThread(disconnectThreadData, message.exitCode)
     }
 
-    ThreadPrivateStaticData[MessageType.Connect] = connectHandler as MessageHandler<Message>
-    ThreadPrivateStaticData[MessageType.Disconnect] = disconnectHandler as MessageHandler<Message>
+    ThreadPrivateStatic[MessageType.Connect] = connectHandler as MessageHandler<Message>
+    ThreadPrivateStatic[MessageType.Disconnect] = disconnectHandler as MessageHandler<Message>
 
     // should create package that exports close alias
     Thread.close = (globalThis.close ? (exitCode) => {
@@ -84,7 +86,7 @@ if (!Thread.isMainThread) {
             const threadData = ThreadIdMap.get(0)
 
             const messageResponse: MessageResponse = {
-                id: ThreadPrivateStaticData.nextResponseId++,
+                id: ThreadPrivateStatic.nextResponseId++,
                 threadData: threadData,
                 signal: null as any,
                 resolve: (threadId: number) => {
@@ -103,8 +105,7 @@ if (!Thread.isMainThread) {
     }
 
     Thread.prototype.terminate = function () {
-        if (!(this instanceof Thread))
-            throw new TypeError(`this (${Object.prototype.toString.call(this)}) is not a Thread instance`)
+        if (!(this instanceof Thread)) throw errorReference.notInstanceOf('this', this, Thread)
 
         const threadData = ThreadMap.get(this)
 
@@ -112,7 +113,7 @@ if (!Thread.isMainThread) {
 
         return new Promise((_, reject) => {
             const messageResponse: MessageResponse = {
-                id: ThreadPrivateStaticData.nextResponseId++,
+                id: ThreadPrivateStatic.nextResponseId++,
                 threadData: threadData,
                 signal: null as any,
                 resolve: () => threadData.exitCode,

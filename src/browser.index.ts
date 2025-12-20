@@ -1,8 +1,15 @@
-import { type SetupMessage, Thread, ThreadPrivateStaticData } from './Thread.ts'
+import './compatibility.ts'
+import { errorReference, type SetupMessage, Thread, ThreadPrivateStatic } from './Thread.ts'
 import { setupWorker } from './main.Thread.ts'
 import { setupHandler } from './worker.Thread.ts'
 
 interface BrowserSetupMessage extends SetupMessage { threadId: Thread['id'], workerData: any }
+
+if (typeof Worker !== 'function' || typeof Worker.prototype !== 'object')
+    throw errorReference.apiDoesNotExist('Worker')
+
+if (typeof setTimeout !== 'function')
+    throw errorReference.apiDoesNotExist('setTimeout')
 
 if (Thread.isMainThread) {
     let nextThreadId = 1
@@ -18,7 +25,7 @@ if (Thread.isMainThread) {
     Thread.workerData = null
     Thread.close = globalThis.close as () => never
 
-    ThreadPrivateStaticData.createWorker = workerData => {
+    ThreadPrivateStatic.createWorker = workerData => {
         setupWorkerMessage.threadId = nextThreadId++
         setupWorkerMessage.workerData = workerData
 

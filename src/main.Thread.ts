@@ -8,15 +8,15 @@ import {
     type TerminateMessage,
     ThreadIdMap,
     Thread,
-    privateKey,
-    ThreadPrivateStaticData,
+    ThreadPrivateStatic,
     type SetupMessage,
     type CreateMessage,
     type DisconnectMessage,
     disconnectThread,
     type ThreadPrivate,
     type CloseMessage,
-    ThreadMap
+    ThreadMap,
+    errorReference
 } from './Thread.ts'
 
 /** Broadcast connect message and send setup message to the Worker when creating a Thread. */
@@ -77,13 +77,14 @@ if (Thread.isMainThread) {
         setupWorkerMessage.currentThreadIds.length = 0
         setupWorkerMessage.currentMessagePorts.length = 0
 
-        const thread = new (Thread as any)(privateKey, threadId, port1)
+        ThreadPrivateStatic.privateKey = true
+        const thread = new Thread(threadId, port1)
 
         return thread
     }
 
     const createHandler: MessageHandler<CreateMessage> = (threadData, message) => {
-        resolveMessage.value = ThreadPrivateStaticData.createWorker(message.workerData).id
+        resolveMessage.value = ThreadPrivateStatic.createWorker(message.workerData).id
         resolveMessage.responseId = message.responseId
         threadData.messagePort.postMessage(resolveMessage)
         resolveMessage.value = undefined
@@ -108,18 +109,17 @@ if (Thread.isMainThread) {
         }
     }
 
-    ThreadPrivateStaticData[MessageType.Create] = createHandler as MessageHandler<Message>
-    ThreadPrivateStaticData[MessageType.Terminate] = terminateHandler as MessageHandler<Message>
-    ThreadPrivateStaticData[MessageType.Close] = closeHandler as MessageHandler<Message>
+    ThreadPrivateStatic[MessageType.Create] = createHandler as MessageHandler<Message>
+    ThreadPrivateStatic[MessageType.Terminate] = terminateHandler as MessageHandler<Message>
+    ThreadPrivateStatic[MessageType.Close] = closeHandler as MessageHandler<Message>
 
     // should create package that exports close alias
     Thread.close = (globalThis.close || process.exit) as (exitCode?) => never
 
-    Thread.create = async workerData => await ThreadPrivateStaticData.createWorker(workerData)
+    Thread.create = async workerData => await ThreadPrivateStatic.createWorker(workerData)
 
     Thread.prototype.terminate = async function () {
-        if (!(this instanceof Thread))
-            throw new TypeError(`this (${Object.prototype.toString.call(this)}) is not a Thread instance`)
+        if (!(this instanceof Thread)) throw errorReference.notInstanceOf('this', this, Thread)
 
         const threadData = ThreadMap.get(this)
 

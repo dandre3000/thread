@@ -1,7 +1,18 @@
-import { parentPort, threadId, Worker, workerData } from 'node:worker_threads'
-import { type SetupMessage, Thread, ThreadPrivateStaticData } from './Thread.ts'
+import './compatibility.ts'
+import { errorReference, type SetupMessage, Thread, ThreadPrivateStatic } from './Thread.ts'
 import { setupWorker } from './main.Thread.ts'
 import { setupHandler } from './worker.Thread.ts'
+
+let workerThreads
+
+try { workerThreads = await import('node:worker_threads') } catch (error) {
+    throw errorReference.apiDoesNotExist('node:worker_threads')
+}
+
+if (typeof setImmediate !== 'function' && typeof setTimeout !== 'function')
+    throw errorReference.apiDoesNotExist('setImmediate or setTimeout')
+
+const { parentPort, threadId, Worker, workerData } = workerThreads
 
 if (Thread.isMainThread) {
     Thread.id = threadId
@@ -12,7 +23,7 @@ if (Thread.isMainThread) {
         currentMessagePorts: []
     }
 
-    ThreadPrivateStaticData.createWorker = workerData => {
+    ThreadPrivateStatic.createWorker = workerData => {
         const worker = new Worker(new URL(import.meta.url), { workerData })
         const thread = setupWorker(worker.threadId, worker, setupWorkerMessage)
 
@@ -26,8 +37,10 @@ if (Thread.isMainThread) {
         setupHandler(message)
     })
 
-    const errorListener = () => {
+    const errorListener = typeof setImmediate === 'function' ? () => {
         setImmediate(() => Thread.close(1))
+    } : () => {
+        setTimeout(() => Thread.close(1))
     }
 
     process.on('uncaughtException', errorListener)

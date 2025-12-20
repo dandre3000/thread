@@ -59,14 +59,52 @@ export interface ThreadPrivate extends EventListenerObject {
     handleEvent (this: ThreadPrivate, event: MessageEvent<Message>): void
 }
 
+const illegalConstructor = () => new Error('Illegal constructor.')
+
+const notTypeOf = (
+    id: string,
+    value,
+    type: 'bigint' |
+    'boolean' |
+    'function' |
+    'number' |
+    'object' |
+    'string' |
+    'symbol' |
+    'undefined'
+) => new TypeError(`${id} (${typeof value}) is not ${(type === 'object' || type === 'undefined') ? 'an' : 'a'} ${type}.`)
+
+const notInstanceOf = <T>(
+    id: string,
+    value,
+    constructor: new (...args: any[]) => T
+) => new TypeError(`${id} (${Object.prototype.toString.call(value)}) is not an instance of ${constructor.name}.`)
+
+const notImplemented = id => new Error(`${id} is not implemented.`)
+
+const threadClosed = (thread: Thread) => new Error(`Thread ${thread.id} is closed`)
+
+const apiDoesNotExist = (id) => new ReferenceError(`${id} is required to use @dandre3000/thread but does not exist`)
+
+export const errorReference = {
+    illegalConstructor,
+    notTypeOf,
+    notInstanceOf,
+    notImplemented,
+    threadClosed,
+    apiDoesNotExist
+}
+
+/** Default array */
+export const emptyArray: never[] = []
+
 /** Dispatched when a Thread is created. */
 export class OnlineEvent extends Event {
     thread: Thread
 
-    constructor ()
-    constructor (key?: typeof privateKey, thread?: Thread) {
-        if (key !== privateKey)
-            throw new Error(`illegal invocation`)
+    constructor (thread?: Thread) {
+        if (!ThreadPrivateStatic.privateKey) throw errorReference.illegalConstructor()
+        ThreadPrivateStatic.privateKey = false
 
         super('online')
         this.thread = thread as Thread
@@ -78,21 +116,15 @@ export class ExitEvent extends Event {
     thread: Thread
     exitCode: number
 
-    constructor ()
-    constructor (key?: typeof privateKey, thread?: Thread, exitCode?: number ) {
-        if (key !== privateKey)
-            throw new Error(`illegal invocation`)
+    constructor (thread?: Thread, exitCode?: number ) {
+        if (!ThreadPrivateStatic.privateKey) throw errorReference.illegalConstructor()
+        ThreadPrivateStatic.privateKey = false
 
         super('exit')
         this.thread = thread as Thread
         this.exitCode = exitCode as number
     }
 }
-
-/** Default array */
-export const emptyArray: never[] = []
-/** Required to use methods that are locked to the user. */
-export const privateKey = Symbol()
 
 const importMessage: ImportMessage = {
     type: MessageType.Import,
@@ -149,7 +181,7 @@ const invokeHandler: MessageHandler<InvokeMessage> = async (threadData, message)
     const fn = functionMap.get(functionId)
 
     try {
-        if (typeof fn !== 'function') {throw new Error(`Function ${functionId} does not exist`)}
+        if (typeof fn !== 'function') { throw new Error(`Function ${functionId} does not exist`) }
 
         let result = await fn(...(args || emptyArray))
         if (result instanceof Promise) result = await result
@@ -197,7 +229,9 @@ const rejectHandler: MessageHandler<RejectMessage> = (threadData, message) => {
 }
 
 /** Variables that will be passed by reference. */
-export const ThreadPrivateStaticData = {
+export const ThreadPrivateStatic = {
+    /** Required to use methods that are locked to the user. */
+    privateKey: false,
     /** The id of the next async message that is incremented upon assignment. */
     nextResponseId: 0,
     /** Closure for the web or node.js Worker constructor that creates a Worker and return the corresponding thread instance. Implemented by the main thread. */
@@ -216,7 +250,7 @@ export const ThreadPrivateStaticData = {
 /** The message listener for each thread's MessagePort.  */
 export const messageListener: ThreadPrivate['handleEvent'] = function (event) {
     // invoke the corresponding MessageHandler for the message type using the message as the argument
-    (ThreadPrivateStaticData[event.data.type] as MessageHandler<Message>)(this, event.data)
+    (ThreadPrivateStatic[event.data.type] as MessageHandler<Message>)(this, event.data)
 }
 
 /** The abort listener for AbortSignal arguments in Thread methods. */
@@ -257,7 +291,7 @@ export class Thread {
      * @throws {DOMException} if workerData is not compatible with the structuredClone function.
      */
     static create = (workerData: CreateMessage['workerData']) => {
-        if (true) throw new Error('Thread.create is not implemented')
+        if (true) throw errorReference.notImplemented('Thread.create')
 
         return new Promise<Thread>(() => {})
     }
@@ -283,7 +317,7 @@ export class Thread {
     static setFunction = (id: any, fn: (...args: any[]) => any) => {
         id = String(id)
 
-        if (typeof fn !== 'function') throw new TypeError(`fn (${typeof fn}) is not a function`)
+        if (typeof fn !== 'function') throw errorReference.notTypeOf('fn', fn, 'function')
 
         functionMap.set(id, fn)
     }
@@ -300,7 +334,7 @@ export class Thread {
      * @param exitCode 
      */
     static close = (exitCode?: CloseMessage['exitCode']) => {
-        throw new Error('Thread.prototype.close is not implemented')
+        throw errorReference.notImplemented('Thread.close')
     }
 
     static [Symbol.hasInstance] = (thread: Thread) => ThreadMap.has(thread)
@@ -309,9 +343,9 @@ export class Thread {
     id = -1
 
     /** Do not use. */
-    constructor ()
-    constructor (key?: typeof privateKey, threadId?: Thread['id'], messagePort?: MessagePort) {
-        if (key !== privateKey) throw new Error('Illegal invocation')
+    constructor (threadId?: Thread['id'], messagePort?: MessagePort) {
+        if (!ThreadPrivateStatic.privateKey) throw errorReference.illegalConstructor()
+        ThreadPrivateStatic.privateKey = false
 
         const threadData: ThreadPrivate = ({
             thread: this,
@@ -328,7 +362,9 @@ export class Thread {
 
         ThreadMap.set(this, threadData)
         ThreadIdMap.set(threadId as Thread['id'], threadData)
-        Thread.eventTarget.dispatchEvent(new (OnlineEvent as any)(privateKey, this))
+
+        ThreadPrivateStatic.privateKey = true
+        Thread.eventTarget.dispatchEvent(new OnlineEvent(this))
     }
 
     /**
@@ -337,8 +373,7 @@ export class Thread {
      * @throws {TypeError} if this is not a Thread instance.
      * */
     isOnline () {
-        if (!(this instanceof Thread))
-            throw new TypeError(`this (${Object.prototype.toString.call(this)}) is not a Thread instance`)
+        if (!(this instanceof Thread)) throw errorReference.notInstanceOf('this', this, Thread)
 
         return ThreadIdMap.has(this.id)
     }
@@ -354,20 +389,18 @@ export class Thread {
      * @throws {TypeError} if moduleId can not be converted to a number.
      */
     import (moduleId: any, signal?: AbortSignal) {
-        if (!(this instanceof Thread))
-            throw new TypeError(`this (${Object.prototype.toString.call(this)}) is not a Thread instance`)
+        if (!(this instanceof Thread)) throw errorReference.notInstanceOf('this', this, Thread)
 
         const threadData = ThreadIdMap.get(this.id)
-        if (!threadData) throw new Error(`thread ${this.id} is closed`)
+        if (!threadData) throw errorReference.threadClosed(this)
 
         moduleId = String(moduleId)
 
-        if (signal !== undefined && !(signal instanceof AbortSignal))
-            throw new TypeError(`signal (${Object.prototype.toString.call(signal)}) is not an AbortSignal instance`)
+        if (signal !== undefined && !(signal instanceof AbortSignal)) throw errorReference.notInstanceOf('signal', signal, AbortSignal)
 
         return new Promise((resolve, reject) => {
             const messageResponse: MessageResponse = {
-                id: ThreadPrivateStaticData.nextResponseId++,
+                id: ThreadPrivateStatic.nextResponseId++,
                 threadData: threadData,
                 signal: signal as AbortSignal,
                 resolve,
@@ -401,26 +434,22 @@ export class Thread {
      * @throws {TypeError} if signal is defined but not an AbortSignal.
      */
     invoke (id: any, args?: any[], transfer?: (Transferable | NodeJSTransferable)[], signal?: AbortSignal) {
-        if (!(this instanceof Thread))
-            throw new TypeError(`this (${Object.prototype.toString.call(this)}) is not a Thread instance`)
+        if (!(this instanceof Thread)) throw errorReference.notInstanceOf('this', this, Thread)
 
         const threadData = ThreadIdMap.get(this.id)
-        if (!threadData) throw new Error(`thread ${this.id} is closed`)
+        if (!threadData) throw errorReference.threadClosed(this)
 
         id = String(id)
 
-        if (args !== undefined && !(args instanceof Array))
-            throw new TypeError(`args (${Object.prototype.toString.call(args)}) is not an Array`)
+        if (args !== undefined && !(args instanceof Array)) throw errorReference.notInstanceOf('args', args, Array)
 
-        if (transfer !== undefined && !(transfer instanceof Array))
-            throw new TypeError(`transfer (${Object.prototype.toString.call(transfer)}) is not an Array`)
+        if (transfer !== undefined && !(transfer instanceof Array)) throw errorReference.notInstanceOf('transfer', transfer, Array)
 
-        if (signal !== undefined && !(signal instanceof AbortSignal))
-            throw new TypeError(`signal (${Object.prototype.toString.call(signal)}) is not an AbortSignal`)
+        if (signal !== undefined && !(signal instanceof AbortSignal)) throw errorReference.notInstanceOf('signal', signal, AbortSignal)
 
         return new Promise((resolve, reject) => {
             const messageResponse: MessageResponse = {
-                id: ThreadPrivateStaticData.nextResponseId++,
+                id: ThreadPrivateStatic.nextResponseId++,
                 threadData: threadData,
                 signal: signal || null,
                 resolve,
@@ -454,7 +483,7 @@ export class Thread {
      * @throws {TypeError} if this is not a Thread instance.
      * */
     terminate () {
-        if (true) throw new Error('Thread.prototype.terminate is not implemented')
+        if (true) throw errorReference.notImplemented('Thread.prototype.terminate')
 
         return Promise.resolve(NaN)
     }
@@ -464,7 +493,7 @@ export class Thread {
 export const disconnectThread = (threadData: ThreadPrivate, exitCode?: number) => {
     if (threadData.messagePort) {
         for (const [id, response] of threadData.messageResponseMap) {
-            response.reject(new Error(`thread ${threadData.thread.id} closed`))
+            response.reject(errorReference.threadClosed(threadData.thread))
             response.signal?.removeEventListener('abort', response)
             threadData.messageResponseMap.delete(id)
         }
@@ -475,6 +504,8 @@ export const disconnectThread = (threadData: ThreadPrivate, exitCode?: number) =
         threadData.messageResponseMap = undefined as any
 
         ThreadIdMap.delete(threadData.thread.id)
-        Thread.eventTarget.dispatchEvent(new (ExitEvent as any)(privateKey, threadData.thread, threadData.exitCode))
+
+        ThreadPrivateStatic.privateKey = true
+        Thread.eventTarget.dispatchEvent(new ExitEvent(threadData.thread, threadData.exitCode))
     }
 }
