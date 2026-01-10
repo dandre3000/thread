@@ -1,27 +1,25 @@
 import {
-    type Message,
+    type CloseMessage,
     type ConnectMessage,
+    type CreateMessage,
+    type DisconnectMessage,
+    type Message,
     type MessageHandler,
+    type MessageResponse,
+    type SetupMessage,
+    type TerminateMessage,
     type ThreadPrivate,
-    ThreadIdMap,
+    abortListener,
+    disconnectThread,
     MessageType,
     Thread,
-    type MessageResponse,
-    ThreadPrivateStatic,
-    abortListener,
-    type DisconnectMessage,
-    type SetupMessage,
-    disconnectThread,
-    type TerminateMessage,
-    type CloseMessage,
-    type CreateMessage,
-    ThreadMap
+    ThreadIdMap,
+    ThreadMap,
+    ThreadPrivateStatic
 } from './Thread.ts'
 
 /** Handle the initial message from the main thread to this thread. */
 let setupHandler: (message: SetupMessage) => void
-/** Returns a function that sends a CloseMessage to the main thread before calling gloabalThis.close or process.exit. */
-let closeFactory: (threadId: Thread['id'], exit: (exitCode?: number) => never) => (exitCode?: number) => never
 
 if (!Thread.isMainThread) {
     const createMessage: CreateMessage = {
@@ -64,20 +62,45 @@ if (!Thread.isMainThread) {
     ThreadPrivateStatic[MessageType.Connect] = connectHandler as MessageHandler<Message>
     ThreadPrivateStatic[MessageType.Disconnect] = disconnectHandler as MessageHandler<Message>
 
-    // should create package that exports close alias
-    Thread.close = (globalThis.close ? (exitCode) => {
-        closeMessage.exitCode = Number(exitCode)
+    if (process?.exit && typeof process.exit === 'function') {
+        const ogExit = process.exit
 
-        ThreadIdMap.get(0).messagePort.postMessage(closeMessage)
+        process.exit = exitCode => {
+            closeMessage.exitCode = Number(exitCode)
 
-        return close()
-    } : (exitCode) => {
-        closeMessage.exitCode = Number(exitCode)
+            ThreadIdMap.get(0).messagePort.postMessage(closeMessage)
 
-        ThreadIdMap.get(0).messagePort.postMessage(closeMessage)
+            return ogExit(exitCode)
+        }
 
-        return process.exit(exitCode)
-    }) as (exitCode?) => never
+        Thread.close = exitCode => {
+            closeMessage.exitCode = Number(exitCode)
+
+            ThreadIdMap.get(0).messagePort.postMessage(closeMessage)
+
+            return ogExit(exitCode)
+        }
+    }
+
+    if (globalThis.close && typeof globalThis.close === 'function') {
+        const ogClose = globalThis.close
+
+        globalThis.close = () => {
+            closeMessage.exitCode = 0
+
+            ThreadIdMap.get(0).messagePort.postMessage(closeMessage)
+
+            return ogClose()
+        }
+
+        if (!process.exit) Thread.close = (() => {
+            closeMessage.exitCode = 0
+
+            ThreadIdMap.get(0).messagePort.postMessage(closeMessage)
+
+            return close()
+        }) as (exitCode?) => never
+    }
 
     // send a CreateMessage to the main thread and await the response
     Thread.create = (workerData?: CreateMessage['workerData']) => {
@@ -129,4 +152,4 @@ if (!Thread.isMainThread) {
     }
 }
 
-export { setupHandler, closeFactory }
+export { setupHandler }

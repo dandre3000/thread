@@ -24,7 +24,7 @@ if (Thread.isMainThread) {
     }
 
     ThreadPrivateStatic.createWorker = workerData => {
-        const worker = new Worker(import.meta.url, { workerData })
+        const worker = new Worker(new URL(import.meta.url), { workerData })
         const thread = setupWorker(worker.threadId, worker, setupWorkerMessage)
 
         return thread

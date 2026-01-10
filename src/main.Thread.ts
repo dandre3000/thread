@@ -1,21 +1,21 @@
 import { type Worker as NodeJSWorker } from 'node:worker_threads'
 import {
-    type MessageHandler,
+    type CloseMessage,
     type ConnectMessage,
-    MessageType,
-    resolveMessage,
-    type Message,
-    type TerminateMessage,
-    ThreadIdMap,
-    Thread,
-    ThreadPrivateStatic,
-    type SetupMessage,
     type CreateMessage,
     type DisconnectMessage,
-    disconnectThread,
+    type Message,
+    type MessageHandler,
+    type SetupMessage,
+    type TerminateMessage,
     type ThreadPrivate,
-    type CloseMessage,
-    ThreadMap
+    disconnectThread,
+    MessageType,
+    resolveMessage,
+    Thread,
+    ThreadIdMap,
+    ThreadMap,
+    ThreadPrivateStatic
 } from './Thread.ts'
 
 /** Broadcast connect message and send setup message to the Worker when creating a Thread. */

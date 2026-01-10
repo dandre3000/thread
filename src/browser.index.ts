@@ -29,7 +29,7 @@ if (Thread.isMainThread) {
         setupWorkerMessage.threadId = nextThreadId++
         setupWorkerMessage.workerData = workerData
 
-        const thread = setupWorker(setupWorkerMessage.threadId, new Worker(import.meta.url, { type: 'module' }), setupWorkerMessage)
+        const thread = setupWorker(setupWorkerMessage.threadId, new Worker(new URL(import.meta.url), { type: 'module' }), setupWorkerMessage)
         setupWorkerMessage.workerData = undefined
 
         return thread
