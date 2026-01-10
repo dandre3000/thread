@@ -63,7 +63,7 @@ export interface ThreadPrivate extends EventListenerObject {
 export const emptyArray: never[] = []
 
 /** Dispatched when a Thread is created. */
-export class OnlineEvent extends Event {
+class OnlineEvent extends Event {
     thread: Thread
 
     constructor (thread?: Thread) {
@@ -76,7 +76,7 @@ export class OnlineEvent extends Event {
 }
 
 /** Dispatched when a Thread is closed. */
-export class ExitEvent extends Event {
+class ExitEvent extends Event {
     thread: Thread
     exitCode: number
 
