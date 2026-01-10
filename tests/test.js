@@ -1,3 +1,4 @@
+// testing async worker code is egregious work
 const _ = undefined
 const testMap = new Map
 const threadIdSet = new Set
@@ -74,11 +75,12 @@ const terminateThread = async (Thread, thread) => {
     )
 }
 
+// eval test conditions upfront, add them to a map then iterate it
 export const runTests = async (Thread, module, test, expect) => {
-    Thread.setFunction('test', () => {})
+    Thread.expose('test', () => {})
 
-    testMap.set('Thread.deleteFunction() removes the function associated with id',
-        Thread.deleteFunction('test') === true
+    testMap.set('Thread.unexpose() removes the function associated with id',
+        Thread.unexpose('test') === true
     )
 
     testMap.set('Main Thread: Thread.isMainThread === true',
@@ -173,7 +175,7 @@ export const runTests = async (Thread, module, test, expect) => {
 
     const pings = []
 
-    Thread.setFunction('pong', () => {})
+    Thread.expose('pong', () => {})
 
     for (const thread of threads) {
         pings.push(thread.invoke('ping'))

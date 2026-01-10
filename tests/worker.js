@@ -8,11 +8,11 @@ export const main = Thread => {
         Thread.close()
     })
 
-    Thread.setFunction('getIsMainThread', () => Thread.isMainThread)
-    Thread.setFunction('getMainThread', () => Thread.mainThread instanceof Thread)
-    Thread.setFunction('getWorkerData', () => Thread.workerData)
-    Thread.setFunction('neverResolve', () => new Promise((resolve, reject) => {}))
-    Thread.setFunction('ping', async () => {
+    Thread.expose('getIsMainThread', () => Thread.isMainThread)
+    Thread.expose('getMainThread', () => Thread.mainThread instanceof Thread)
+    Thread.expose('getWorkerData', () => Thread.workerData)
+    Thread.expose('neverResolve', () => new Promise((resolve, reject) => {}))
+    Thread.expose('ping', async () => {
         const pongs = []
 
         for (const thread of Thread.getAllThreads()) {
@@ -21,8 +21,8 @@ export const main = Thread => {
 
         await Promise.all(pongs)// .catch(reason => console.error(reason))
     })
-    Thread.setFunction('pong', () => {})
-    Thread.setFunction('transfer', port => {
+    Thread.expose('pong', () => {})
+    Thread.expose('transfer', port => {
         port.start()
         port.postMessage(true)
     })
