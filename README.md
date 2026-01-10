@@ -32,7 +32,7 @@ if (Thread.isMainThread) {
     Thread.create(999).then(async thread => {
         await thread.import(new URL(import.meta.url))
 
-        console.log(await thread.call('test')) // Thread 1 says: YO
+        console.log(await thread.invoke('test')) // Thread 1 says: YO
     })
 } else {
     console.log(Thread.id) // 1
@@ -40,6 +40,45 @@ if (Thread.isMainThread) {
     console.log(Thread.mainThread) // Thread instance for main thread
 }
 ```
+
+## Exports
+### Class: Thread
+### Static properties
+#### isMainThread
+True if the current thread is the main thread.
+#### id
+Identifier for the current thread.
+#### workerdata
+Data sent to a thread upon creation.
+#### tranfer
+Array of objects that will be transfered and emptied whenever another thread uses Thread.prototype.invoke to invoke a function on this thread made available using Thread.expose.
+#### eventTarget
+The target for events broadcasted from other threads.
+#### mainThread
+The Thread instance connected to the main thread if the current thread is a worker otherwise null.
+#### create()
+Return a Promise that resolves to a new Thread. This method is the only way to create a new Thread.
+#### getThread()
+Return the Thread corresponding to the given threadId or return null if no online Thread exists where Thread.id === threadId.
+#### getAllThreads()
+Return an array of all online Threads.
+#### expose()
+Make a function available to other threads when using Thread.prototype.invoke.
+#### unexpose()
+Remove a function from those available to other threads when using Thread.prototype.invoke.
+#### close()
+Alias for globalThis.close or process.exit.
+### Instance properties
+#### id
+Identifier for this Thread instance.
+#### isOnline()
+Returns true until the thread is closed.
+#### import()
+Dynamically import an ES module to the thread and return a Promise that resolves when the module is loaded.
+#### invoke()
+Call a function on the thread added using Thread.expose and return a Promise that resolves to the value returned by that function.
+#### terminate()
+Close this Thread instance.
 
 ## License
 
