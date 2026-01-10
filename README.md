@@ -20,7 +20,7 @@ Thread.eventTarget.addEventListener('online', event => console.log('online event
 Thread.eventTarget.addEventListener('exit', event => console.log('exit event', event.threadId, Thread.id))
 
 // This function is exposed to other Threads
-Thread.setFunction('test', (...args) => {
+Thread.expose('test', (...args) => {
     return `Thread ${Thread.id} says: YO`
 })
 
