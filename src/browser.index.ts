@@ -1,15 +1,15 @@
 import './compatibility.ts'
-import { errorReference, type SetupMessage, Thread, ThreadPrivateStatic } from './Thread.ts'
+import { type SetupMessage, Thread, ThreadPrivateStatic } from './Thread.ts'
 import { setupWorker } from './main.Thread.ts'
 import { setupHandler } from './worker.Thread.ts'
 
 interface BrowserSetupMessage extends SetupMessage { threadId: Thread['id'], workerData: any }
 
 if (typeof Worker !== 'function' || typeof Worker.prototype !== 'object')
-    throw errorReference.apiDoesNotExist('Worker')
+    throw new ReferenceError('Worker is required to use @dandre3000/thread')
 
 if (typeof setTimeout !== 'function')
-    throw errorReference.apiDoesNotExist('setTimeout')
+    throw new ReferenceError('setTimeout is required to use @dandre3000/thread')
 
 if (Thread.isMainThread) {
     let nextThreadId = 1

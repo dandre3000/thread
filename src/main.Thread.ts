@@ -15,8 +15,7 @@ import {
     disconnectThread,
     type ThreadPrivate,
     type CloseMessage,
-    ThreadMap,
-    errorReference
+    ThreadMap
 } from './Thread.ts'
 
 /** Broadcast connect message and send setup message to the Worker when creating a Thread. */
@@ -119,7 +118,8 @@ if (Thread.isMainThread) {
     Thread.create = async workerData => await ThreadPrivateStatic.createWorker(workerData)
 
     Thread.prototype.terminate = async function () {
-        if (!(this instanceof Thread)) throw errorReference.notInstanceOf('this', this, Thread)
+        if (!(this instanceof Thread))
+            throw new TypeError(`this (${Object.prototype.toString.call(this)}) is not a Thread instance.`)
 
         const threadData = ThreadMap.get(this)
 

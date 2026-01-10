@@ -1,16 +1,16 @@
 import './compatibility.ts'
-import { errorReference, type SetupMessage, Thread, ThreadPrivateStatic } from './Thread.ts'
+import { type SetupMessage, Thread, ThreadPrivateStatic } from './Thread.ts'
 import { setupWorker } from './main.Thread.ts'
 import { setupHandler } from './worker.Thread.ts'
 
 let workerThreads
 
 try { workerThreads = await import('node:worker_threads') } catch (error) {
-    throw errorReference.apiDoesNotExist('node:worker_threads')
+    throw new ReferenceError('node:worker_threads is required to use @dandre3000/thread')
 }
 
 if (typeof setImmediate !== 'function' && typeof setTimeout !== 'function')
-    throw errorReference.apiDoesNotExist('setImmediate or setTimeout')
+    throw new ReferenceError('setTimeout is required to use @dandre3000/thread')
 
 const { parentPort, threadId, Worker, workerData } = workerThreads
 
@@ -24,7 +24,7 @@ if (Thread.isMainThread) {
     }
 
     ThreadPrivateStatic.createWorker = workerData => {
-        const worker = new Worker(new URL(import.meta.url), { workerData })
+        const worker = new Worker(import.meta.url, { workerData })
         const thread = setupWorker(worker.threadId, worker, setupWorkerMessage)
 
         return thread

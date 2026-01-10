@@ -1,27 +1,25 @@
-import { errorReference } from './Thread'
-
 if (typeof Promise !== 'function' || typeof Promise.prototype !== 'object')
-    throw errorReference.apiDoesNotExist('Promise')
+    throw new ReferenceError('Promise is required to use @dandre3000/thread')
 
 if (typeof WeakMap !== 'function' || typeof WeakMap.prototype !== 'object')
-    throw errorReference.apiDoesNotExist('WeakMap')
+    throw new ReferenceError('WeakMap is required to use @dandre3000/thread')
 
 if (typeof MessageChannel !== 'function' || typeof MessageChannel.prototype !== 'object')
-    throw errorReference.apiDoesNotExist('MessageChannel')
+    throw new ReferenceError('MessageChannel is required to use @dandre3000/thread')
 
 if (typeof Symbol !== 'function' || typeof Symbol.prototype !== 'object')
-    throw errorReference.apiDoesNotExist('Symbol')
+    throw new ReferenceError('WeakMap is required to use @dandre3000/thread')
 
 if (typeof Symbol.hasInstance !== 'symbol')
-    throw errorReference.apiDoesNotExist('Symbol.hasInstance')
+    throw new ReferenceError('Symbol.hasInstance is required to use @dandre3000/thread')
 
-try { await (async () => {})() } catch (error) { throw errorReference.apiDoesNotExist('async functions') }
+try { (async () => {})() } catch (error) { throw new ReferenceError('async functions are required to use @dandre3000/thread') }
 
 if (typeof AbortController !== 'function' || typeof AbortController.prototype !== 'object')
-    throw errorReference.apiDoesNotExist('AbortController')
+    throw new ReferenceError('AbortController is required to use @dandre3000/thread')
 
-try { if (typeof import.meta !== 'object') throw errorReference.apiDoesNotExist('import.meta') } catch (error) {
-    throw errorReference.apiDoesNotExist('import.meta')
+try { if (typeof import.meta !== 'object') throw new ReferenceError('import.meta is required to use @dandre3000/thread') } catch (error) {
+    throw new ReferenceError('import.meta is required to use @dandre3000/thread')
 }
 
-try { import(import.meta.url) } catch (error) { throw errorReference.apiDoesNotExist('dynamic import') }
+try { import(import.meta.url) } catch (error) { throw new ReferenceError('dynamic import is required to use @dandre3000/thread') }

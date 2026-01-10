@@ -15,8 +15,7 @@ import {
     type TerminateMessage,
     type CloseMessage,
     type CreateMessage,
-    ThreadMap,
-    errorReference
+    ThreadMap
 } from './Thread.ts'
 
 /** Handle the initial message from the main thread to this thread. */
@@ -105,7 +104,8 @@ if (!Thread.isMainThread) {
     }
 
     Thread.prototype.terminate = function () {
-        if (!(this instanceof Thread)) throw errorReference.notInstanceOf('this', this, Thread)
+        if (!(this instanceof Thread))
+            throw new TypeError(`this (${Object.prototype.toString.call(this)}) is not a Thread instance.`)
 
         const threadData = ThreadMap.get(this)
 
