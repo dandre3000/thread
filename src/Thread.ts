@@ -271,7 +271,7 @@ export class Thread {
     static getAllThreads = () => [...ThreadIdMap.values()].map(threadData => threadData.thread)
 
     /**
-     * Add a function to those available to other threads using Thread.prototype.invoke.
+     * Add a function to those available to other threads when using Thread.prototype.invoke.
      *
      * @param functionId Identifier to associate with the function.
      * @param fn The function.
@@ -287,11 +287,11 @@ export class Thread {
     }
 
     /**
-     * Remove a function from those available to other threads using Thread.prototype.invoke.
+     * Remove a function from those available to other threads when using Thread.prototype.invoke.
      *
      * @param id Identifier associated with the function.
      */
-    static deleteFunction = (id: any) => functionMap.delete(String(id))
+    static unexpose = (id: any) => functionMap.delete(String(id))
 
     /**
      * Alias for globalThis.close or process.exit.
