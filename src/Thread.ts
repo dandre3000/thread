@@ -238,7 +238,7 @@ export class Thread {
     static workerData: any
     /**
      * Array of objects that will be transfered and emptied whenever another thread uses Thread.prototype.invoke
-     * to invoke a function on this thread made available using Thread.setFunction.
+     * to invoke a function on this thread made available using Thread.expose.
      * If an object is not transferable the Promise returned by Thread.prototype.invoke will be rejected.
      */
     static transfer: (Transferable | NodeJSTransferable)[] = [] // replace with method for transferable check
@@ -278,7 +278,7 @@ export class Thread {
      *
      * @throws {TypeError} if fn is not a function.
      */
-    static setFunction = (id: any, fn: (...args: any[]) => any) => {
+    static expose = (id: any, fn: (...args: any[]) => any) => {
         id = String(id)
 
         if (typeof fn !== 'function') throw new TypeError(`fn (${typeof fn}) is not a function.`)
@@ -386,7 +386,7 @@ export class Thread {
     }
 
     /**
-     * Call a function on the thread added using Thread.setFunction and return a Promise that resolves to the value returned by that function.
+     * Call a function on the thread added using Thread.expose and return a Promise that resolves to the value returned by that function.
      * If no function is associated with id or the function throws an error then the Promise will be rejected.
      *
      * @param id An identifier that maps to a function.
