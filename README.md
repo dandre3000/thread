@@ -51,7 +51,7 @@ Identifier for the current thread.
 #### workerdata
 Data sent to a thread upon creation.
 #### transfer
-Array of objects that will be transfered and emptied whenever another thread uses Thread.prototype.invoke to invoke a function on this thread made available using Thread.expose.
+Array of objects that will be transfered and emptied whenever another thread uses Thread.prototype.invoke to call a function on this thread made available using Thread.expose.
 ```js
 // transfer a MessagePort from a worker to the main thread
 import { Thread } from '@dandre3000/thread'
@@ -73,6 +73,12 @@ if (Thread.isMainThread) {
 ```
 #### eventTarget
 The target for events broadcasted from other threads.
+```js
+import { Thread } from '@dandre3000/thread'
+
+Thread.eventTarget.addEventListener('online', event => console.log(event))
+Thread.eventTarget.addEventListener('exit', event => console.log(event))
+```
 #### mainThread
 The Thread instance connected to the main thread if the current thread is a worker otherwise null.
 #### create()
