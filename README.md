@@ -50,8 +50,27 @@ True if the current thread is the main thread.
 Identifier for the current thread.
 #### workerdata
 Data sent to a thread upon creation.
-#### tranfer
+#### transfer
 Array of objects that will be transfered and emptied whenever another thread uses Thread.prototype.invoke to invoke a function on this thread made available using Thread.expose.
+```js
+// transfer a MessagePort from a worker to the main thread
+import { Thread } from '@dandre3000/thread'
+
+if (Thread.isMainThread) {
+    const thread = await Thread.create()
+    await thread.import(new URL(import.meta.url))
+
+    ;(await thread.invoke('getPort')).postMessage('Transfer successful')
+} else {
+    Thread.expose('getPort', () => {
+        const { port1, port2 } = new MessageChannel
+        port1.addEventListener('message', ({ data }) => console.log(data))
+        port1.start()
+        Thread.transfer.push(port2)
+        return port2
+    })
+}
+```
 #### eventTarget
 The target for events broadcasted from other threads.
 #### mainThread
