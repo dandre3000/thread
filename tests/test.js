@@ -156,13 +156,21 @@ export const runTests = async (Thread, module, test, expect) => {
     const { port1, port2 } = new MessageChannel
 
     value = new Promise(resolve => {
-        port1.addEventListener('message', () => resolve(true))
+        port1.addEventListener('message', ({ data }) => resolve(data))
         port1.start()
 
         value = randomThread.invoke('transfer', [port2], [port2]).catch(() => resolve(false))
     })
 
     testMap.set(`Thread ${randomThread.id}: this.invoke() transfers the transfer argument`, await value)
+
+    value = new Promise(async resolve => {
+        const port = await randomThread.invoke('getPort')
+        port.addEventListener('message', ({ data }) => resolve(data))
+        port.start()
+    })
+
+    testMap.set(`Thread ${randomThread.id}: the contents of Thread.transfer are transferred in response to this.invoke()`, await value)
 
     const controller = new AbortController()
     const signal = controller.signal

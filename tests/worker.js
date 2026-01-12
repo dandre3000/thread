@@ -26,4 +26,12 @@ export const main = Thread => {
         port.start()
         port.postMessage(true)
     })
+    Thread.expose('getPort', () => {
+        const { port1, port2 } = new MessageChannel
+
+        setTimeout(() => port1.postMessage(true))
+
+        Thread.transfer.push(port2)
+        return port2
+    })
 }
