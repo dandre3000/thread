@@ -62,7 +62,7 @@ if (!Thread.isMainThread) {
     ThreadPrivateStatic[MessageType.Connect] = connectHandler as MessageHandler<Message>
     ThreadPrivateStatic[MessageType.Disconnect] = disconnectHandler as MessageHandler<Message>
 
-    if (process?.exit && typeof process.exit === 'function') {
+    if (typeof process === 'object' && typeof process.exit === 'function') {
         const ogExit = process.exit
 
         process.exit = exitCode => {
