@@ -37,9 +37,11 @@ if (Thread.isMainThread) {
         setupHandler(message)
     })
 
-    const errorListener = typeof setImmediate === 'function' ? () => {
+    const errorListener = typeof setImmediate === 'function' ? error => {
+        console.error(error)
         setImmediate(() => Thread.close(1))
-    } : () => {
+    } : error => {
+        console.error(error)
         setTimeout(() => Thread.close(1))
     }
 

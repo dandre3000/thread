@@ -62,7 +62,7 @@ if (!Thread.isMainThread) {
     ThreadPrivateStatic[MessageType.Connect] = connectHandler as MessageHandler<Message>
     ThreadPrivateStatic[MessageType.Disconnect] = disconnectHandler as MessageHandler<Message>
 
-    if (typeof process === 'object' && typeof process.exit === 'function') {
+    if (typeof globalThis.process?.exit === 'function') {
         const ogExit = process.exit
 
         process.exit = exitCode => {
@@ -82,7 +82,7 @@ if (!Thread.isMainThread) {
         }
     }
 
-    if (globalThis.close && typeof globalThis.close === 'function') {
+    if (typeof globalThis.close === 'function') {
         const ogClose = globalThis.close
 
         globalThis.close = () => {
@@ -93,7 +93,7 @@ if (!Thread.isMainThread) {
             return ogClose()
         }
 
-        if (!process.exit) Thread.close = (() => {
+        if (typeof globalThis.process?.exit !== 'function') Thread.close = (() => {
             closeMessage.exitCode = 0
 
             ThreadIdMap.get(0).messagePort.postMessage(closeMessage)

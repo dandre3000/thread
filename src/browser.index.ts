@@ -42,7 +42,8 @@ if (Thread.isMainThread) {
         setupHandler(event.data)
     }, { once: true })
 
-    const errorListener = () => {
+    const errorListener = error => {
+        console.error(error)
         setTimeout(() => Thread.close(1))
     }
 
