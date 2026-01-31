@@ -8,9 +8,6 @@ interface BrowserSetupMessage extends SetupMessage { threadId: Thread['id'], wor
 if (typeof Worker !== 'function' || typeof Worker.prototype !== 'object')
     throw new ReferenceError('Worker is required to use @dandre3000/thread')
 
-if (typeof setTimeout !== 'function')
-    throw new ReferenceError('setTimeout is required to use @dandre3000/thread')
-
 if (Thread.isMainThread) {
     let nextThreadId = 1
 

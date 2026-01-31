@@ -1,3 +1,12 @@
+if (typeof setImmediate !== 'function' && typeof setTimeout !== 'function')
+    throw new ReferenceError('setTimeout is required to use @dandre3000/thread')
+
+try {
+    class Foo {}
+} catch (error) {
+    throw new SyntaxError('ES6 class syntax is required to use @dandre3000/thread')
+}
+
 if (typeof Promise !== 'function' || typeof Promise.prototype !== 'object')
     throw new ReferenceError('Promise is required to use @dandre3000/thread')
 
@@ -14,7 +23,7 @@ if (typeof Symbol.hasInstance !== 'symbol')
     throw new ReferenceError('Symbol.hasInstance is required to use @dandre3000/thread')
 
 try { await (async () => {})() } catch (error) {
-    throw new ReferenceError('async and await operators are required to use @dandre3000/thread')
+    throw new SyntaxError('async and await operators are required to use @dandre3000/thread')
 }
 
 if (typeof AbortController !== 'function' || typeof AbortController.prototype !== 'object')

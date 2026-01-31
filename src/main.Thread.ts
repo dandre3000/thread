@@ -112,7 +112,6 @@ if (Thread.isMainThread) {
     ThreadPrivateStatic[MessageType.Terminate] = terminateHandler as MessageHandler<Message>
     ThreadPrivateStatic[MessageType.Close] = closeHandler as MessageHandler<Message>
 
-    // should create package that exports close alias
     Thread.close = (globalThis.close || globalThis.process?.exit) as (exitCode?) => never
 
     Thread.create = async workerData => await ThreadPrivateStatic.createWorker(workerData)

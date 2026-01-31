@@ -8,10 +8,6 @@ let workerThreads
 try { workerThreads = await import('node:worker_threads') } catch (error) {
     throw new ReferenceError('node:worker_threads is required to use @dandre3000/thread')
 }
-
-if (typeof setImmediate !== 'function' && typeof setTimeout !== 'function')
-    throw new ReferenceError('setTimeout is required to use @dandre3000/thread')
-
 const { parentPort, threadId, Worker, workerData } = workerThreads
 
 if (Thread.isMainThread) {
