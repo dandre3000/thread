@@ -44,13 +44,13 @@ if (Thread.isMainThread) {
 ## Exports
 ### Class: Thread
 ### Static properties
-#### isMainThread
+#### isMainThread: boolean
 True if the current thread is the main thread.
-#### id
+#### id: number
 Identifier for the current thread.
-#### workerdata
+#### workerdata: any
 Data sent to a thread upon creation.
-#### transfer
+#### transfer: Transferable[]
 Array of objects that will be transfered and emptied whenever another thread uses Thread.prototype.invoke to call a function on this thread made available using Thread.expose.
 ```js
 // transfer a MessagePort from a worker to the main thread
@@ -71,7 +71,7 @@ if (Thread.isMainThread) {
     })
 }
 ```
-#### eventTarget
+#### eventTarget: EventTarget
 The target for events broadcasted from other threads.
 ```js
 import { Thread } from '@dandre3000/thread'
@@ -79,30 +79,30 @@ import { Thread } from '@dandre3000/thread'
 Thread.eventTarget.addEventListener('online', event => console.log(event))
 Thread.eventTarget.addEventListener('exit', event => console.log(event))
 ```
-#### mainThread
+#### mainThread: Thread
 The Thread instance connected to the main thread if the current thread is a worker otherwise null.
-#### create()
+#### create(workerData: any): Promise<Thread>
 Return a Promise that resolves to a new Thread. This method is the only way to create a new Thread.
-#### getThread()
+#### getThread(threadId: any): Thread
 Return the Thread corresponding to the given threadId or return null if no online Thread exists where Thread.id === threadId.
-#### getAllThreads()
+#### getAllThreads(): Thread[]
 Return an array of all online Threads.
-#### expose()
+#### expose(id: any, fn: Function): void
 Make a function available to other threads when using Thread.prototype.invoke.
-#### unexpose()
+#### unexpose(id: any): void
 Remove a function from those available to other threads when using Thread.prototype.invoke.
-#### close()
+#### close(exitCode?: number): never
 Alias for globalThis.close or process.exit.
 ### Instance properties
-#### id
+#### id: number
 Identifier for this Thread instance.
-#### isOnline()
+#### isOnline(): boolean
 Returns true until the thread is closed.
-#### import()
+#### import(moduleId: any, signal?: AbortSignal): Promise<undefined>
 Dynamically import an ES module to the thread and return a Promise that resolves when the module is loaded.
-#### invoke()
+#### invoke(id: any, args?: any[], transfer?: (Transferable)[], signal?: AbortSignal): Promise<unknown>
 Call a function on the thread added using Thread.expose and return a Promise that resolves to the value returned by that function.
-#### terminate()
+#### terminate(): Promise<number>
 Close this Thread instance.
 
 ## License

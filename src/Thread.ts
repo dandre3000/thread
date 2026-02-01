@@ -254,7 +254,7 @@ export class Thread {
      *
      * @throws {DOMException} if workerData is not compatible with the structuredClone function.
      */
-    static create = (workerData: CreateMessage['workerData']) => {
+    static create = (workerData: any) => {
         if (true) throw new Error('Thread.create is not implemented.')
 
         return new Promise<Thread>(() => {})
@@ -265,7 +265,7 @@ export class Thread {
      *
      * @throws {TypeError} if threadId can not be converted to a number.
      */
-    static getThread = (threadId: Thread['id']) => ThreadIdMap.get(threadId)?.thread || null
+    static getThread = (threadId: any) => ThreadIdMap.get(threadId)?.thread || null
 
     /** Return an array of all online Threads. */
     static getAllThreads = () => [...ThreadIdMap.values()].map(threadData => threadData.thread)
@@ -365,7 +365,7 @@ export class Thread {
         if (signal !== undefined && !(signal instanceof AbortSignal))
             throw new TypeError(`signal (${Object.prototype.toString.call(signal)}) is not an AbortSignal instance.`)
 
-        return new Promise((resolve, reject) => {
+        return new Promise<undefined>((resolve, reject) => {
             const messageResponse: MessageResponse = {
                 id: ThreadPrivateStatic.nextResponseId++,
                 threadData: threadData,
