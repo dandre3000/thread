@@ -57,7 +57,7 @@ if (Thread.isMainThread) {
         const { port1, port2 } = new MessageChannel
 
         connectMessage.threadId = threadId
-        setupWorkerMessage.currentThreadIds.push(0)
+        setupWorkerMessage.currentThreadIds.push(Thread.id)
         setupWorkerMessage.currentMessagePorts.push(port2)
 
         for (const [id, threadData] of ThreadIdMap) {
@@ -90,7 +90,7 @@ if (Thread.isMainThread) {
     }
 
     const terminateHandler: MessageHandler<TerminateMessage> = (_threadData, message) => {
-        if (message.threadId === 0) Thread.close()
+        if (message.threadId === Thread.id) Thread.close()
 
         const threadData = ThreadIdMap.get(message.threadId)
 
