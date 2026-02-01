@@ -65,18 +65,10 @@ if (!Thread.isMainThread) {
     if (typeof globalThis.process?.exit === 'function') {
         const ogExit = process.exit
 
-        process.exit = exitCode => {
+        Thread.close = process.exit = exitCode => {
             closeMessage.exitCode = Number(exitCode)
 
-            ThreadIdMap.get(0).messagePort.postMessage(closeMessage)
-
-            return ogExit(exitCode)
-        }
-
-        Thread.close = exitCode => {
-            closeMessage.exitCode = Number(exitCode)
-
-            ThreadIdMap.get(0).messagePort.postMessage(closeMessage)
+            ThreadIdMap.get(Thread.mainThread.id).messagePort.postMessage(closeMessage)
 
             return ogExit(exitCode)
         }
@@ -88,24 +80,18 @@ if (!Thread.isMainThread) {
         globalThis.close = () => {
             closeMessage.exitCode = 0
 
-            ThreadIdMap.get(0).messagePort.postMessage(closeMessage)
+            ThreadIdMap.get(Thread.mainThread.id).messagePort.postMessage(closeMessage)
 
             return ogClose()
         }
 
-        if (typeof globalThis.process?.exit !== 'function') Thread.close = (() => {
-            closeMessage.exitCode = 0
-
-            ThreadIdMap.get(0).messagePort.postMessage(closeMessage)
-
-            return close()
-        }) as (exitCode?) => never
+        if (typeof globalThis.process?.exit !== 'function') Thread.close = close as (exitCode?) => never
     }
 
     // send a CreateMessage to the main thread and await the response
     Thread.create = (workerData?: CreateMessage['workerData']) => {
         return new Promise((resolve, reject) => {
-            const threadData = ThreadIdMap.get(0)
+            const threadData = ThreadIdMap.get(Thread.mainThread.id)
 
             const messageResponse: MessageResponse = {
                 id: ThreadPrivateStatic.nextResponseId++,
@@ -147,7 +133,7 @@ if (!Thread.isMainThread) {
             terminateMessage.responseId = messageResponse.id
             terminateMessage.threadId = this.id
 
-            ThreadIdMap.get(0).messagePort.postMessage(terminateMessage)
+            ThreadIdMap.get(Thread.mainThread.id).messagePort.postMessage(terminateMessage)
         })
     }
 }
