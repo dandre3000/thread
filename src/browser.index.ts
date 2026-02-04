@@ -2,6 +2,7 @@ import './compatibility.ts'
 import { type SetupMessage, Thread, ThreadPrivateStatic } from './Thread.ts'
 import { setupWorker } from './main.Thread.ts'
 import { setupHandler } from './worker.Thread.ts'
+import { defineExportProperties } from './defineExportProperties.ts'
 
 interface BrowserSetupMessage extends SetupMessage { threadId: Thread['id'], workerData: any }
 
@@ -31,12 +32,15 @@ if (Thread.isMainThread) {
 
         return thread
     }
+
+    defineExportProperties()
 } else {
     addEventListener('message', (event: MessageEvent<BrowserSetupMessage>) => {
         Thread.id = event.data.threadId
         Thread.workerData = event.data.workerData
     
         setupHandler(event.data)
+        defineExportProperties()
     }, { once: true })
 
     const errorListener = error => {

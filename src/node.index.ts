@@ -1,17 +1,9 @@
+import { parentPort, threadId, Worker, workerData } from 'node:worker_threads'
 import './compatibility.ts'
 import { type SetupMessage, Thread, ThreadPrivateStatic } from './Thread.ts'
 import { setupWorker } from './main.Thread.ts'
 import { setupHandler } from './worker.Thread.ts'
-
-let workerThreads
-
-(async () => {
-    try { workerThreads = await import('node:worker_threads') } catch (error) {
-        throw new ReferenceError('node:worker_threads is required to use @dandre3000/thread')
-    }
-})()
-
-const { parentPort, threadId, Worker, workerData } = workerThreads
+import { defineExportProperties } from './defineExportProperties.ts'
 
 if (Thread.isMainThread) {
     Thread.id = threadId
@@ -28,12 +20,15 @@ if (Thread.isMainThread) {
 
         return thread
     }
+
+    defineExportProperties()
 } else {
     Thread.id = threadId
     Thread.workerData = workerData
 
     ;(parentPort as any).once('message', (message: SetupMessage) => {
         setupHandler(message)
+        defineExportProperties()
     })
 
     const errorListener = typeof setImmediate === 'function' ? error => {

@@ -46,5 +46,3 @@ try {
 } catch (error) {
     throw new ReferenceError('dynamic import is required to use @dandre3000/thread')
 }
-
-export {}

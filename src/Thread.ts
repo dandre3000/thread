@@ -71,7 +71,13 @@ class OnlineEvent extends Event {
         ThreadPrivateStatic.privateKey = false
 
         super('online')
-        this.thread = thread as Thread
+
+        Object.defineProperty(this, 'thread', {
+            configurable: false,
+            writable: false,
+            enumerable: true,
+            value: thread
+        })
     }
 }
 
@@ -85,8 +91,20 @@ class ExitEvent extends Event {
         ThreadPrivateStatic.privateKey = false
 
         super('exit')
-        this.thread = thread as Thread
-        this.exitCode = exitCode as number
+
+        Object.defineProperty(this, 'thread', {
+            configurable: false,
+            writable: false,
+            enumerable: true,
+            value: thread
+        })
+
+        Object.defineProperty(this, 'exitCode', {
+            configurable: false,
+            writable: false,
+            enumerable: true,
+            value: exitCode
+        })
     }
 }
 
@@ -319,9 +337,14 @@ export class Thread {
             handleEvent: messageListener
         })
 
-        this.id = threadId as Thread['id']
+        Object.defineProperty(this, 'id', {
+            configurable: false,
+            writable: false,
+            enumerable: true,
+            value: threadId
+        })
 
-        (messagePort as MessagePort).addEventListener('message', threadData)
+        ;(messagePort as MessagePort).addEventListener('message', threadData)
         ;(messagePort as MessagePort).start()
 
         ThreadMap.set(this, threadData)
