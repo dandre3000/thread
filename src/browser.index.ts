@@ -1,5 +1,5 @@
 import './compatibility.ts'
-import { type SetupMessage, Thread, ThreadPrivateStatic } from './Thread.ts'
+import { type SetupMessage, ExitEvent, OnlineEvent, Thread, ThreadPrivateStatic } from './Thread.ts'
 import { setupWorker } from './main.Thread.ts'
 import { setupHandler } from './worker.Thread.ts'
 import { defineExportProperties } from './defineExportProperties.ts'
@@ -52,4 +52,4 @@ if (Thread.isMainThread) {
     addEventListener('unhandledrejection', errorListener)
 }
 
-export { Thread }
+export { Thread, OnlineEvent, ExitEvent }

@@ -42,6 +42,7 @@ if (Thread.isMainThread) {
 ```
 
 ## Exports
+
 ### Class: Thread
 ### Static properties
 #### isMainThread: boolean
@@ -104,6 +105,17 @@ Dynamically import an ES module to the thread and return a Promise that resolves
 Call a function on the thread added using Thread.expose and return a Promise that resolves to the value returned by that function.
 #### terminate(): Promise<number>
 Close this Thread instance.
+
+### Class: OnlineEvent
+Dispatched when a Thread is created.
+### Instance properties
+#### thread: thread
+
+### Class: ExitEvent
+Dispatched when a Thread is closed.
+### Instance properties
+#### thread: thread
+#### exitCode: number
 
 ## License
 
